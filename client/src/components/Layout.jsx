@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Shield, Home, LogOut, LayoutDashboard, Zap, Info, Phone } from 'lucide-react';
+import { Shield, Home, LogOut, LayoutDashboard, Zap, Info, Phone, ArrowLeft } from 'lucide-react';
 import { isAuthenticated, removeToken, removeUser, getUser } from '../utils/auth';
 
 const ADMIN_ROLES = ['Admin', 'Inspector', 'SRIC'];
@@ -76,6 +76,23 @@ const Layout = ({ children }) => {
             </div>
 
             <main className="container" style={{ paddingTop: '2rem' }}>
+                {location.pathname !== '/' && (
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="btn btn-outline"
+                        style={{
+                            marginBottom: '1.5rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.4rem 0.8rem',
+                            fontSize: '0.85rem',
+                            letterSpacing: '1px'
+                        }}
+                    >
+                        <ArrowLeft size={16} /> Back
+                    </button>
+                )}
                 {children}
             </main>
 
