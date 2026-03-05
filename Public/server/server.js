@@ -10,6 +10,7 @@ const requisitionRoutes = require('./routes/requisitionRoutes');
 const statsRoutes = require('./routes/statsRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const leaveRoutes = require('./routes/leaveRoutes');
+const noticeRoutes = require('./routes/noticeRoutes');
 
 const app = express();
 
@@ -29,6 +30,34 @@ app.use('/api/requisitions', requisitionRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/leaves', leaveRoutes);
+app.use('/api/notices', noticeRoutes);
+
+// TEMPORARY SEED ROUTE - remove after first use
+app.get('/api/seed', async (req, res) => {
+    try {
+        const bcrypt = require('bcryptjs');
+        const User = require('./models/User');
+        const count = await User.countDocuments();
+        if (count > 0) return res.json({ message: `Already seeded. ${count} users exist.` });
+        const salt = await bcrypt.genSalt(10);
+        const pw = await bcrypt.hash('admin123', salt);
+        const users = [
+            { username: 'admin', password: pw, role: 'Admin' },
+            { username: 'inspector', password: pw, role: 'Inspector' },
+            { username: 'sric', password: pw, role: 'SRIC' },
+            { username: 'sro1', password: pw, role: 'SRO' },
+            { username: 'srt1', password: pw, role: 'SRT' },
+            { username: 'wireless1', password: pw, role: 'Wireless Operator' },
+            { username: 'hgnvf1', password: pw, role: 'HG/NVF' },
+            { username: 'rtc1', password: pw, role: 'RTC' },
+            { username: 'cv1', password: pw, role: 'CV' },
+        ];
+        await User.insertMany(users);
+        res.json({ message: 'Database seeded successfully! 9 users created. Password: admin123' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // Catch-all to serve index.html for SPA routes
 app.use((req, res, next) => {

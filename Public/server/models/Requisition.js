@@ -8,6 +8,7 @@ const requisitionSchema = new mongoose.Schema({
     quantity: { type: Number, required: true, min: 1 },
     purpose: { type: String, required: true },
     contact: { type: String, required: true },
+    fileUrl: { type: String },
     status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' }
 }, { timestamps: true });
 

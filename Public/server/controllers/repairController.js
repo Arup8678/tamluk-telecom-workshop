@@ -4,7 +4,8 @@ const genRepairId = () => 'REP-' + Date.now().toString().slice(-7) + '-' + Math.
 
 exports.createRepair = async (req, res) => {
     try {
-        const repair = await Repair.create({ ...req.body, repairId: genRepairId() });
+        const fileUrl = req.file ? `/uploads/${req.file.filename}` : '';
+        const repair = await Repair.create({ ...req.body, repairId: genRepairId(), fileUrl });
         res.status(201).json(repair);
     } catch (error) {
         res.status(400).json({ message: error.message });

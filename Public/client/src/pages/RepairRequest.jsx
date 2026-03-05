@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { Wrench } from 'lucide-react';
+import { Wrench, Upload } from 'lucide-react';
 
 const psOptions = ['Tamluk', 'Kolaghat', 'Panskura', 'Chandipur', 'Moyna', 'Nandakumar'];
 const officeOptions = [
@@ -17,6 +17,8 @@ const RepairRequest = () => {
         issue: '',
         contact: ''
     });
+    const [file, setFile] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -36,18 +38,27 @@ const RepairRequest = () => {
         e.preventDefault();
         setSuccess('');
         setError('');
+        setSubmitting(true);
 
         try {
-            const res = await axios.post('/api/repairs', {
-                type,
-                location: formData.location,
-                issue: formData.issue,
-                contact: formData.contact
+            const fd = new FormData();
+            fd.append('type', type);
+            fd.append('location', formData.location);
+            fd.append('issue', formData.issue);
+            fd.append('contact', formData.contact);
+            if (file) fd.append('file', file);
+
+            const res = await axios.post('/api/repairs', fd, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             });
             setSuccess(`Repair request submitted successfully! Your Tracking ID is: ${res.data.repairId}`);
             setFormData({ location: type === 'PS' ? psOptions[0] : officeOptions[0], issue: '', contact: '' });
+            setFile(null);
+            e.target.reset();
         } catch (err) {
             setError(err.response?.data?.message || 'Error submitting request');
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -105,8 +116,19 @@ const RepairRequest = () => {
                     />
                 </div>
 
-                <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }}>
-                    Submit Request
+                <div className="form-group">
+                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <Upload size={14} /> Upload Document / Image (Optional)
+                    </label>
+                    <input
+                        type="file"
+                        className="form-control"
+                        onChange={(e) => setFile(e.target.files[0])}
+                    />
+                </div>
+
+                <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} disabled={submitting}>
+                    {submitting ? 'Submitting...' : 'Submit Request'}
                 </button>
             </form>
         </div>

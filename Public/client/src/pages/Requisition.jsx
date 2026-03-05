@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { FileText } from 'lucide-react';
+import { FileText, Upload } from 'lucide-react';
 
 const psOptions = ['Tamluk', 'Kolaghat', 'Panskura', 'Chandipur', 'Moyna', 'Nandakumar'];
 const officeOptions = [
@@ -19,6 +19,8 @@ const Requisition = () => {
         purpose: '',
         contact: ''
     });
+    const [file, setFile] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -38,20 +40,29 @@ const Requisition = () => {
         e.preventDefault();
         setSuccess('');
         setError('');
+        setSubmitting(true);
 
         try {
-            const res = await axios.post('/api/requisitions', {
-                type,
-                location: formData.location,
-                item: formData.item,
-                quantity: Number(formData.quantity),
-                purpose: formData.purpose,
-                contact: formData.contact
+            const fd = new FormData();
+            fd.append('type', type);
+            fd.append('location', formData.location);
+            fd.append('item', formData.item);
+            fd.append('quantity', formData.quantity);
+            fd.append('purpose', formData.purpose);
+            fd.append('contact', formData.contact);
+            if (file) fd.append('file', file);
+
+            const res = await axios.post('/api/requisitions', fd, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             });
             setSuccess(`Requisition submitted successfully! Your Tracking ID is: ${res.data.requisitionId}`);
             setFormData({ location: type === 'PS' ? psOptions[0] : officeOptions[0], item: '', quantity: 1, purpose: '', contact: '' });
+            setFile(null);
+            e.target.reset();
         } catch (err) {
             setError(err.response?.data?.message || 'Error submitting requisition');
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -135,8 +146,19 @@ const Requisition = () => {
                     />
                 </div>
 
-                <button type="submit" className="btn btn-success" style={{ width: '100%', marginTop: '1rem' }}>
-                    Submit Requisition
+                <div className="form-group">
+                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <Upload size={14} /> Upload Document / Image (Optional)
+                    </label>
+                    <input
+                        type="file"
+                        className="form-control"
+                        onChange={(e) => setFile(e.target.files[0])}
+                    />
+                </div>
+
+                <button type="submit" className="btn btn-success" style={{ width: '100%', marginTop: '1rem' }} disabled={submitting}>
+                    {submitting ? 'Submitting...' : 'Submit Requisition'}
                 </button>
             </form>
         </div>

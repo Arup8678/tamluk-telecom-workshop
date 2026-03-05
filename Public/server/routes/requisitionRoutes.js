@@ -8,9 +8,17 @@ const {
     deleteRequisition
 } = require('../controllers/requisitionController');
 const { protect, authorize } = require('../middleware/authMiddleware');
+const multer = require('multer');
+const path = require('path');
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, path.join(__dirname, '..', 'uploads')),
+    filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+});
+const upload = multer({ storage });
 
 router.route('/')
-    .post(createRequisition) // Public to submit
+    .post(upload.single('file'), createRequisition) // Public to submit
     .get(protect, getRequisitions);
 
 router.route('/status/:id').get(getRequisitionById);

@@ -9,6 +9,10 @@ const AdminDashboard = () => {
     const [requisitions, setRequisitions] = useState([]);
     const [attendances, setAttendances] = useState([]);
     const [leaves, setLeaves] = useState([]);
+    const [notices, setNotices] = useState([]);
+    const [noticeTitle, setNoticeTitle] = useState('');
+    const [noticeFile, setNoticeFile] = useState(null);
+    const [noticeLoading, setNoticeLoading] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState('repairs');
@@ -29,12 +33,14 @@ const AdminDashboard = () => {
             setRequisitions(reqsRes.data);
 
             try {
-                const [attRes, leaveRes] = await Promise.all([
+                const [attRes, leaveRes, noticeRes] = await Promise.all([
                     axios.get('/api/attendance/today', config),
                     axios.get('/api/leaves', config),
+                    axios.get('/api/notices')
                 ]);
                 setAttendances(attRes.data);
                 setLeaves(leaveRes.data);
+                setNotices(noticeRes.data);
             } catch (e) { console.warn('Supplementary data error', e); }
         } catch (err) {
             setError(err.response?.data?.message || 'Error fetching data');
@@ -137,6 +143,7 @@ const AdminDashboard = () => {
                 <button style={tabStyle('requisitions')} onClick={() => setActiveTab('requisitions')}>Requisitions ({requisitions.length})</button>
                 <button style={tabStyle('attendance')} onClick={() => setActiveTab('attendance')}>Attendance ({attendances.length})</button>
                 <button style={tabStyle('leaves')} onClick={() => setActiveTab('leaves')}>Leaves ({leaves.length})</button>
+                <button style={tabStyle('notices')} onClick={() => setActiveTab('notices')}>Notices ({notices.length})</button>
             </div>
 
             {/* ── Repairs Tab ──────────────────── */}
@@ -147,13 +154,14 @@ const AdminDashboard = () => {
                     </h3>
                     <div className="table-container">
                         <table className="table">
-                            <thead><tr><th>ID</th><th>Location</th><th>Issue</th><th>Status</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>ID</th><th>Location</th><th>Issue</th><th>Doc</th><th>Status</th><th>Actions</th></tr></thead>
                             <tbody>
                                 {repairs.slice(0, 20).map(r => (
                                     <tr key={r._id}>
                                         <td><code style={{ color: 'var(--purple-glow)', fontSize: '0.8rem' }}>{r.repairId}</code></td>
                                         <td>{r.location}</td>
                                         <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.issue}</td>
+                                        <td>{r.fileUrl ? <a href={r.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--purple-light)' }}>View</a> : '—'}</td>
                                         <td><span className={`badge badge-${r.status.toLowerCase()}`}>{r.status}</span></td>
                                         <td style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                                             <select className="form-control" style={{ padding: '0.3rem', fontSize: '0.8rem', width: 'auto' }} value={r.status} onChange={e => handleStatusChange('repair', r._id, e.target.value)}>
@@ -180,12 +188,13 @@ const AdminDashboard = () => {
                     </h3>
                     <div className="table-container">
                         <table className="table">
-                            <thead><tr><th>ID</th><th>Item (Qty)</th><th>Status</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>ID</th><th>Item (Qty)</th><th>Doc</th><th>Status</th><th>Actions</th></tr></thead>
                             <tbody>
                                 {requisitions.slice(0, 20).map(req => (
                                     <tr key={req._id}>
                                         <td><code style={{ color: 'var(--purple-glow)', fontSize: '0.8rem' }}>{req.requisitionId}</code></td>
                                         <td>{req.item} <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>({req.quantity})</span></td>
+                                        <td>{req.fileUrl ? <a href={req.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--purple-light)' }}>View</a> : '—'}</td>
                                         <td><span className={`badge badge-${req.status.toLowerCase()}`}>{req.status}</span></td>
                                         <td style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                                             <select className="form-control" style={{ padding: '0.3rem', fontSize: '0.8rem', width: 'auto' }} value={req.status} onChange={e => handleStatusChange('requisition', req._id, e.target.value)}>
@@ -267,6 +276,79 @@ const AdminDashboard = () => {
                                     </tr>
                                 ))}
                                 {leaves.length === 0 && <tr><td colSpan="8" className="text-center" style={{ color: 'var(--text-secondary)', padding: '2rem' }}>No leave applications</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Notices Tab ────────────────────── */}
+            {activeTab === 'notices' && (
+                <div className="glass-card" style={{ padding: '1.5rem' }}>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', color: 'var(--purple-glow)', fontSize: '0.9rem', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+                        <FileText size={18} /> Notice Board Management
+                    </h3>
+
+                    {/* Upload Form */}
+                    <div style={{ background: 'rgba(124,58,237,0.05)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
+                        <h4 style={{ marginBottom: '1rem', color: 'white', fontSize: '0.85rem' }}>Upload New Notice</h4>
+                        <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            if (!noticeTitle || !noticeFile) return alert('Title and file are required');
+                            setNoticeLoading(true);
+                            try {
+                                const fd = new FormData();
+                                fd.append('title', noticeTitle);
+                                fd.append('file', noticeFile);
+                                await axios.post('/api/notices', fd, {
+                                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+                                });
+                                setNoticeTitle('');
+                                setNoticeFile(null);
+                                // reset file input manually
+                                e.target.reset();
+                                fetchData();
+                                alert('Notice uploaded successfully!');
+                            } catch (err) {
+                                alert(err.response?.data?.message || 'Error uploading notice');
+                            } finally { setNoticeLoading(false); }
+                        }} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                            <div className="form-group" style={{ flex: 1, minWidth: '200px', marginBottom: 0 }}>
+                                <label className="form-label">Notice Title</label>
+                                <input type="text" className="form-control" placeholder="Enter title..." value={noticeTitle} onChange={e => setNoticeTitle(e.target.value)} required />
+                            </div>
+                            <div className="form-group" style={{ flex: 1, minWidth: '200px', marginBottom: 0 }}>
+                                <label className="form-label">Attached File</label>
+                                <input type="file" className="form-control" onChange={e => setNoticeFile(e.target.files[0])} required />
+                            </div>
+                            <button type="submit" className="btn btn-primary" disabled={noticeLoading} style={{ padding: '0.75rem 1.5rem', height: 'fit-content' }}>
+                                {noticeLoading ? 'Uploading...' : 'Upload Notice'}
+                            </button>
+                        </form>
+                    </div>
+
+                    <div className="table-container">
+                        <table className="table">
+                            <thead><tr><th>Title</th><th>Uploaded By</th><th>Date</th><th>File</th><th>Action</th></tr></thead>
+                            <tbody>
+                                {notices.map(n => (
+                                    <tr key={n._id}>
+                                        <td style={{ fontWeight: 600 }}>{n.title}</td>
+                                        <td><span style={{ color: 'var(--purple-glow)', fontSize: '0.8rem' }}>{n.uploadedBy?.username} ({n.uploadedBy?.role})</span></td>
+                                        <td style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(n.createdAt).toLocaleDateString()}</td>
+                                        <td><a href={n.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--purple-light)', textDecoration: 'none' }}>View File</a></td>
+                                        <td>
+                                            <button onClick={async () => {
+                                                if (!window.confirm('Delete this notice?')) return;
+                                                try {
+                                                    await axios.delete(`/api/notices/${n._id}`, config);
+                                                    fetchData();
+                                                } catch (err) { alert(err.response?.data?.message || 'Error deleting'); }
+                                            }} className="btn btn-danger" style={{ padding: '0.25rem 0.6rem', fontSize: '0.7rem' }}>Delete</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {notices.length === 0 && <tr><td colSpan="5" className="text-center" style={{ color: 'var(--text-secondary)', padding: '2rem' }}>No notices available</td></tr>}
                             </tbody>
                         </table>
                     </div>

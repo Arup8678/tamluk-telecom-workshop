@@ -4,7 +4,8 @@ const genReqId = () => 'REQ-' + Date.now().toString().slice(-7) + '-' + Math.flo
 
 exports.createRequisition = async (req, res) => {
     try {
-        const requisition = await Requisition.create({ ...req.body, requisitionId: genReqId() });
+        const fileUrl = req.file ? `/uploads/${req.file.filename}` : '';
+        const requisition = await Requisition.create({ ...req.body, requisitionId: genReqId(), fileUrl });
         res.status(201).json(requisition);
     } catch (error) {
         res.status(400).json({ message: error.message });

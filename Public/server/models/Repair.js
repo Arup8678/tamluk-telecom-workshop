@@ -6,6 +6,7 @@ const repairSchema = new mongoose.Schema({
     location: { type: String, required: true },
     issue: { type: String, required: true },
     contact: { type: String, required: true },
+    fileUrl: { type: String },
     status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' }
 }, { timestamps: true });
 
