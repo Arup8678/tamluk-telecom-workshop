@@ -1,0 +1,279 @@
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { getToken, getUser } from '../utils/auth';
+import { LayoutDashboard, Wrench, FileText, Activity, Clock, Users, RefreshCw, AlertTriangle } from 'lucide-react';
+
+const AdminDashboard = () => {
+    const [stats, setStats] = useState(null);
+    const [repairs, setRepairs] = useState([]);
+    const [requisitions, setRequisitions] = useState([]);
+    const [attendances, setAttendances] = useState([]);
+    const [leaves, setLeaves] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [activeTab, setActiveTab] = useState('repairs');
+    const user = getUser();
+    const token = getToken();
+    const config = { headers: { Authorization: `Bearer ${token}` } };
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const [statsRes, repairsRes, reqsRes] = await Promise.all([
+                axios.get('/api/stats', config),
+                axios.get('/api/repairs', config),
+                axios.get('/api/requisitions', config),
+            ]);
+            setStats(statsRes.data);
+            setRepairs(repairsRes.data);
+            setRequisitions(reqsRes.data);
+
+            try {
+                const [attRes, leaveRes] = await Promise.all([
+                    axios.get('/api/attendance/today', config),
+                    axios.get('/api/leaves', config),
+                ]);
+                setAttendances(attRes.data);
+                setLeaves(leaveRes.data);
+            } catch (e) { console.warn('Supplementary data error', e); }
+        } catch (err) {
+            setError(err.response?.data?.message || 'Error fetching data');
+        } finally { setLoading(false); }
+    };
+
+    useEffect(() => { fetchData(); }, []);
+
+    const handleStatusChange = async (type, id, newStatus) => {
+        try {
+            if (type === 'repair') await axios.put(`/api/repairs/${id}`, { status: newStatus }, config);
+            else if (type === 'requisition') await axios.put(`/api/requisitions/${id}`, { status: newStatus }, config);
+            else if (type === 'leave') await axios.put(`/api/leaves/${id}`, { status: newStatus }, config);
+            fetchData();
+        } catch (err) { alert(err.response?.data?.message || 'Error'); }
+    };
+
+    const handleDelete = async (type, id) => {
+        if (!window.confirm('Delete this record?')) return;
+        try {
+            if (type === 'repair') await axios.delete(`/api/repairs/${id}`, config);
+            else await axios.delete(`/api/requisitions/${id}`, config);
+            fetchData();
+        } catch (err) { alert(err.response?.data?.message || 'Error'); }
+    };
+
+    const handleWarn = async (attId) => {
+        const msg = prompt('Enter warning message for this late staff member:');
+        if (!msg) return;
+        try {
+            await axios.put(`/api/attendance/warn/${attId}`, { warning: msg }, config);
+            fetchData();
+        } catch (err) { alert(err.response?.data?.message || 'Error sending warning'); }
+    };
+
+    if (loading) return (
+        <div style={{ textAlign: 'center', paddingTop: '6rem' }}>
+            <div style={{ fontFamily: 'Orbitron, monospace', fontSize: '1.2rem', color: 'var(--purple-light)', letterSpacing: '3px', animation: 'pulse-glow 1.5s infinite' }}>
+                ■ LOADING COMMAND CENTER ■
+            </div>
+        </div>
+    );
+    if (error) return <div className="error-message" style={{ margin: '2rem auto', maxWidth: '600px', textAlign: 'center' }}>{error}</div>;
+
+    const tabStyle = (tab) => ({
+        padding: '0.6rem 1.25rem',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        fontWeight: 600,
+        fontSize: '0.8rem',
+        letterSpacing: '1px',
+        fontFamily: 'Inter, sans-serif',
+        transition: 'all 0.2s',
+        background: activeTab === tab ? 'linear-gradient(135deg,var(--purple-primary),var(--purple-light))' : 'rgba(168,85,247,0.08)',
+        color: activeTab === tab ? 'white' : 'var(--purple-glow)',
+        border: activeTab === tab ? '1px solid transparent' : '1px solid rgba(168,85,247,0.25)',
+    });
+
+    return (
+        <div style={{ paddingBottom: '3rem', animation: 'fadeInUp 0.4s ease' }}>
+            {/* Header */}
+            <div className="glass-card" style={{ marginBottom: '1.5rem', padding: '1.25rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <LayoutDashboard size={24} color="var(--purple-light)" />
+                    <div>
+                        <h2 style={{ fontFamily: 'Orbitron, monospace', fontSize: '1rem', fontWeight: 700, letterSpacing: '2px', background: 'linear-gradient(135deg,#fff,var(--purple-glow))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>COMMAND CENTER</h2>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', letterSpacing: '1px' }}>{user?.username} [{user?.role}]</p>
+                    </div>
+                </div>
+                <button onClick={fetchData} className="btn btn-outline" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}><RefreshCw size={14} /> Refresh</button>
+            </div>
+
+            {/* Stats */}
+            {stats && (
+                <div className="stats-grid" style={{ marginBottom: '2rem' }}>
+                    <div className="glass-card stat-card" style={{ borderBottom: '3px solid var(--purple-light)' }}>
+                        <Activity size={28} color="var(--purple-light)" />
+                        <div className="stat-value">{stats.totalRequests}</div>
+                        <div className="stat-label">Total Requests</div>
+                    </div>
+                    <div className="glass-card stat-card" style={{ borderBottom: '3px solid var(--warning)' }}>
+                        <div className="stat-value" style={{ color: 'var(--warning)', WebkitTextFillColor: 'var(--warning)' }}>{stats.totalPending}</div>
+                        <div className="stat-label">Pending</div>
+                    </div>
+                    <div className="glass-card stat-card" style={{ borderBottom: '3px solid var(--success)' }}>
+                        <div className="stat-value" style={{ color: 'var(--success)', WebkitTextFillColor: 'var(--success)' }}>{stats.totalApproved}</div>
+                        <div className="stat-label">Approved</div>
+                    </div>
+                    <div className="glass-card stat-card" style={{ borderBottom: '3px solid var(--purple-accent)' }}>
+                        <Users size={28} color="var(--purple-accent)" />
+                        <div className="stat-value" style={{ color: 'var(--purple-glow)', WebkitTextFillColor: 'var(--purple-glow)' }}>{attendances.length}</div>
+                        <div className="stat-label">Checked-In Today</div>
+                    </div>
+                </div>
+            )}
+
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                <button style={tabStyle('repairs')} onClick={() => setActiveTab('repairs')}>Repairs ({repairs.length})</button>
+                <button style={tabStyle('requisitions')} onClick={() => setActiveTab('requisitions')}>Requisitions ({requisitions.length})</button>
+                <button style={tabStyle('attendance')} onClick={() => setActiveTab('attendance')}>Attendance ({attendances.length})</button>
+                <button style={tabStyle('leaves')} onClick={() => setActiveTab('leaves')}>Leaves ({leaves.length})</button>
+            </div>
+
+            {/* ── Repairs Tab ──────────────────── */}
+            {activeTab === 'repairs' && (
+                <div className="glass-card" style={{ padding: '1.5rem' }}>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--purple-glow)', fontSize: '0.9rem', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+                        <Wrench size={18} /> Repair Requests
+                    </h3>
+                    <div className="table-container">
+                        <table className="table">
+                            <thead><tr><th>ID</th><th>Location</th><th>Issue</th><th>Status</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                {repairs.slice(0, 20).map(r => (
+                                    <tr key={r._id}>
+                                        <td><code style={{ color: 'var(--purple-glow)', fontSize: '0.8rem' }}>{r.repairId}</code></td>
+                                        <td>{r.location}</td>
+                                        <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.issue}</td>
+                                        <td><span className={`badge badge-${r.status.toLowerCase()}`}>{r.status}</span></td>
+                                        <td style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                            <select className="form-control" style={{ padding: '0.3rem', fontSize: '0.8rem', width: 'auto' }} value={r.status} onChange={e => handleStatusChange('repair', r._id, e.target.value)}>
+                                                <option value="Pending">Pending</option>
+                                                <option value="Approved">Approved</option>
+                                                <option value="Rejected">Rejected</option>
+                                            </select>
+                                            {user.role === 'Admin' && <button onClick={() => handleDelete('repair', r._id)} className="btn btn-danger" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}>Del</button>}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {repairs.length === 0 && <tr><td colSpan="5" className="text-center" style={{ color: 'var(--text-secondary)', padding: '2rem' }}>No repairs</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Requisitions Tab ─────────────── */}
+            {activeTab === 'requisitions' && (
+                <div className="glass-card" style={{ padding: '1.5rem' }}>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--success)', fontSize: '0.9rem', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+                        <FileText size={18} /> Requisitions
+                    </h3>
+                    <div className="table-container">
+                        <table className="table">
+                            <thead><tr><th>ID</th><th>Item (Qty)</th><th>Status</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                {requisitions.slice(0, 20).map(req => (
+                                    <tr key={req._id}>
+                                        <td><code style={{ color: 'var(--purple-glow)', fontSize: '0.8rem' }}>{req.requisitionId}</code></td>
+                                        <td>{req.item} <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>({req.quantity})</span></td>
+                                        <td><span className={`badge badge-${req.status.toLowerCase()}`}>{req.status}</span></td>
+                                        <td style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                            <select className="form-control" style={{ padding: '0.3rem', fontSize: '0.8rem', width: 'auto' }} value={req.status} onChange={e => handleStatusChange('requisition', req._id, e.target.value)}>
+                                                <option value="Pending">Pending</option>
+                                                <option value="Approved">Approved</option>
+                                                <option value="Rejected">Rejected</option>
+                                            </select>
+                                            {user.role === 'Admin' && <button onClick={() => handleDelete('requisition', req._id)} className="btn btn-danger" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}>Del</button>}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {requisitions.length === 0 && <tr><td colSpan="4" className="text-center" style={{ color: 'var(--text-secondary)', padding: '2rem' }}>No requisitions</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Attendance Tab ───────────────── */}
+            {activeTab === 'attendance' && (
+                <div className="glass-card" style={{ padding: '1.5rem' }}>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--warning)', fontSize: '0.9rem', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+                        <Clock size={18} /> Today's Duty Attendance
+                    </h3>
+                    <div className="table-container">
+                        <table className="table">
+                            <thead><tr><th>Officer</th><th>Role</th><th>Check-In</th><th>Check-Out</th><th>Status</th><th>Warning</th><th>Action</th></tr></thead>
+                            <tbody>
+                                {attendances.map(att => (
+                                    <tr key={att._id}>
+                                        <td style={{ fontWeight: 600 }}>{att.user?.username || '—'}</td>
+                                        <td><span style={{ color: 'var(--purple-glow)', fontSize: '0.8rem' }}>{att.user?.role}</span></td>
+                                        <td style={{ fontFamily: 'Orbitron, monospace', fontSize: '0.85rem' }}>{new Date(att.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                                        <td style={{ fontFamily: 'Orbitron, monospace', fontSize: '0.85rem' }}>{att.checkOutTime ? new Date(att.checkOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                                        <td><span className={`badge ${att.status === 'On Time' ? 'badge-approved' : 'badge-rejected'}`}>{att.status}</span></td>
+                                        <td style={{ fontSize: '0.8rem', color: att.warning ? 'var(--danger)' : 'var(--text-secondary)', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.warning || '—'}</td>
+                                        <td>
+                                            {att.status === 'Late' && (
+                                                <button onClick={() => handleWarn(att._id)} className="btn btn-danger" style={{ padding: '0.25rem 0.6rem', fontSize: '0.7rem' }}>
+                                                    <AlertTriangle size={12} /> Warn
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {attendances.length === 0 && <tr><td colSpan="7" className="text-center" style={{ color: 'var(--text-secondary)', padding: '2rem' }}>No attendance today</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Leaves Tab ────────────────────── */}
+            {activeTab === 'leaves' && (
+                <div className="glass-card" style={{ padding: '1.5rem' }}>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--purple-glow)', fontSize: '0.9rem', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+                        <FileText size={18} /> Leave Applications
+                    </h3>
+                    <div className="table-container">
+                        <table className="table">
+                            <thead><tr><th>Officer</th><th>Role</th><th>Type</th><th>Days</th><th>Reason</th><th>Doc</th><th>Status</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                {leaves.map(l => (
+                                    <tr key={l._id}>
+                                        <td style={{ fontWeight: 600 }}>{l.user?.username || '—'}</td>
+                                        <td style={{ color: 'var(--purple-glow)', fontSize: '0.8rem' }}>{l.user?.role}</td>
+                                        <td><span style={{ fontWeight: 600 }}>{l.leaveType}</span></td>
+                                        <td style={{ fontFamily: 'Orbitron, monospace', fontWeight: 700 }}>{l.days}</td>
+                                        <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.reason}</td>
+                                        <td>{l.fileUrl ? <a href={l.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--purple-light)' }}>View</a> : '—'}</td>
+                                        <td><span className={`badge ${l.status === 'Approved' ? 'badge-approved' : l.status === 'Rejected' ? 'badge-rejected' : 'badge-pending'}`}>{l.status}</span></td>
+                                        <td style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                            <select className="form-control" style={{ padding: '0.3rem', fontSize: '0.8rem', width: 'auto' }} value={l.status} onChange={e => handleStatusChange('leave', l._id, e.target.value)}>
+                                                <option value="Pending">Pending</option>
+                                                <option value="Approved">Approved</option>
+                                                <option value="Rejected">Rejected</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {leaves.length === 0 && <tr><td colSpan="8" className="text-center" style={{ color: 'var(--text-secondary)', padding: '2rem' }}>No leave applications</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default AdminDashboard;

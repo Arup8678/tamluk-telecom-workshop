@@ -1,0 +1,16 @@
+{
+    "name": "tamluk-telecom-unified",
+    "version": "1.0.0",
+    "description": "Unified build for Tamluk Telecom Portal",
+    "main": "server/server.js",
+    "scripts": {
+        "install:all": "npm install && cd client && npm install && cd ../server && npm install",
+        "build:client": "cd client && npm run build",
+        "start": "node server/server.js",
+        "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm run dev\"",
+        "build": "npm run build:client"
+    },
+    "dependencies": {
+        "concurrently": "^9.1.2"
+    }
+}
