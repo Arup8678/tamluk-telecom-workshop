@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/notices (Protected: Admin, Inspector, SRIC)
-router.post('/', protect, authorize('Admin', 'Inspector', 'SRIC'), upload.single('file'), async (req, res) => {
+router.post('/', protect, authorize('Admin', 'Inspector', 'SRIC', 'Superior', 'Developer -Alpha'), upload.single('file'), async (req, res) => {
     try {
         const { title } = req.body;
         if (!title) return res.status(400).json({ message: 'Title is required' });
@@ -45,7 +45,7 @@ router.post('/', protect, authorize('Admin', 'Inspector', 'SRIC'), upload.single
 });
 
 // DELETE /api/notices/:id (Protected: Admin, Inspector, SRIC)
-router.delete('/:id', protect, authorize('Admin', 'Inspector', 'SRIC'), async (req, res) => {
+router.delete('/:id', protect, authorize('Admin', 'Inspector', 'SRIC', 'Superior', 'Developer -Alpha'), async (req, res) => {
     try {
         const notice = await Notice.findById(req.params.id);
         if (!notice) return res.status(404).json({ message: 'Notice not found' });

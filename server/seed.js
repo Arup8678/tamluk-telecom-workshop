@@ -24,6 +24,8 @@ const importData = async () => {
             { username: 'hgnvf1', password: pw, role: 'HG/NVF' },
             { username: 'rtc1', password: pw, role: 'RTC' },
             { username: 'cv1', password: pw, role: 'CV' },
+            { username: 'superior', password: pw, role: 'Superior' },
+            { username: 'developer', password: pw, role: 'Developer -Alpha' },
         ];
 
         await User.insertMany(users);

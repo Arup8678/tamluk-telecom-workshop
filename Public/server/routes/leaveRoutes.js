@@ -44,7 +44,7 @@ router.get('/my', protect, async (req, res) => {
 });
 
 // ── GET ALL LEAVES (Admin/Inspector/SRIC) ───────────────────
-router.get('/', protect, authorize('Admin', 'Inspector', 'SRIC'), async (req, res) => {
+router.get('/', protect, authorize('Admin', 'Inspector', 'SRIC', 'Superior', 'Developer -Alpha'), async (req, res) => {
     try {
         const leaves = await Leave.find()
             .populate('user', 'username role')
@@ -56,7 +56,7 @@ router.get('/', protect, authorize('Admin', 'Inspector', 'SRIC'), async (req, re
 });
 
 // ── APPROVE/REJECT LEAVE (Admin/Inspector/SRIC) ────────────
-router.put('/:id', protect, authorize('Admin', 'Inspector', 'SRIC'), async (req, res) => {
+router.put('/:id', protect, authorize('Admin', 'Inspector', 'SRIC', 'Superior', 'Developer -Alpha'), async (req, res) => {
     try {
         const leave = await Leave.findByIdAndUpdate(
             req.params.id,

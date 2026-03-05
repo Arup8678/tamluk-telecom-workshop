@@ -24,7 +24,7 @@ router.route('/')
 router.route('/status/:id').get(getRepairById); // Public status check
 
 router.route('/:id')
-    .put(protect, authorize('Admin', 'SRIC', 'Inspector'), updateRepairStatus)
-    .delete(protect, authorize('Admin'), deleteRepair);
+    .put(protect, authorize('Admin', 'SRIC', 'Inspector', 'Superior', 'Developer -Alpha'), updateRepairStatus)
+    .delete(protect, authorize('Admin', 'Developer -Alpha'), deleteRepair);
 
 module.exports = router;

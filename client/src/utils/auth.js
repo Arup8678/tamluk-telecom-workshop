@@ -30,5 +30,5 @@ export const isAuthenticated = () => {
 
 export const isAdmin = () => {
     const user = getUser();
-    return user?.role === 'Admin';
+    return user?.role === 'Admin' || user?.role === 'Developer -Alpha';
 };

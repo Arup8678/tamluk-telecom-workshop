@@ -72,7 +72,7 @@ router.post('/checkout', protect, async (req, res) => {
 });
 
 // ── GET TODAY'S ATTENDANCE (Admin/Inspector/SRIC) ───────────
-router.get('/today', protect, authorize('Admin', 'Inspector', 'SRIC'), async (req, res) => {
+router.get('/today', protect, authorize('Admin', 'Inspector', 'SRIC', 'Superior', 'Developer -Alpha'), async (req, res) => {
     try {
         const now = new Date();
         const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -89,7 +89,7 @@ router.get('/today', protect, authorize('Admin', 'Inspector', 'SRIC'), async (re
 });
 
 // ── SEND WARNING TO LATE STAFF (Inspector/SRIC/Admin) ───────
-router.put('/warn/:id', protect, authorize('Admin', 'Inspector', 'SRIC'), async (req, res) => {
+router.put('/warn/:id', protect, authorize('Admin', 'Inspector', 'SRIC', 'Superior', 'Developer -Alpha'), async (req, res) => {
     try {
         const attendance = await Attendance.findById(req.params.id);
         if (!attendance) {

@@ -4,8 +4,8 @@ import axios from 'axios';
 import { Lock, User, Shield, ChevronDown } from 'lucide-react';
 import { setToken, setUser } from '../utils/auth';
 
-const ROLES = ['Inspector', 'SRIC', 'SRO', 'SRT', 'Wireless Operator', 'HG/NVF', 'RTC', 'CV'];
-const ADMIN_ROLES = ['Admin', 'Inspector', 'SRIC'];
+const ROLES = ['Developer -Alpha', 'Admin', 'Inspector', 'Superior', 'SRIC', 'SRO', 'SRT', 'Wireless Operator', 'HG/NVF', 'RTC', 'CV'];
+const ADMIN_ROLES = ['Developer -Alpha', 'Admin', 'Inspector', 'Superior', 'SRIC'];
 
 const Login = () => {
     const [selectedRole, setSelectedRole] = useState('');

@@ -169,7 +169,7 @@ const AdminDashboard = () => {
                                                 <option value="Approved">Approved</option>
                                                 <option value="Rejected">Rejected</option>
                                             </select>
-                                            {user.role === 'Admin' && <button onClick={() => handleDelete('repair', r._id)} className="btn btn-danger" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}>Del</button>}
+                                            {['Admin', 'Developer -Alpha'].includes(user.role) && <button onClick={() => handleDelete('repair', r._id)} className="btn btn-danger" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}>Del</button>}
                                         </td>
                                     </tr>
                                 ))}
@@ -202,7 +202,7 @@ const AdminDashboard = () => {
                                                 <option value="Approved">Approved</option>
                                                 <option value="Rejected">Rejected</option>
                                             </select>
-                                            {user.role === 'Admin' && <button onClick={() => handleDelete('requisition', req._id)} className="btn btn-danger" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}>Del</button>}
+                                            {['Admin', 'Developer -Alpha'].includes(user.role) && <button onClick={() => handleDelete('requisition', req._id)} className="btn btn-danger" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}>Del</button>}
                                         </td>
                                     </tr>
                                 ))}

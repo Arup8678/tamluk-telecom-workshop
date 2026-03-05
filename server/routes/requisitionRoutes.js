@@ -24,7 +24,7 @@ router.route('/')
 router.route('/status/:id').get(getRequisitionById);
 
 router.route('/:id')
-    .put(protect, authorize('Admin', 'SRIC', 'Inspector'), updateRequisitionStatus)
-    .delete(protect, authorize('Admin'), deleteRequisition);
+    .put(protect, authorize('Admin', 'SRIC', 'Inspector', 'Superior', 'Developer -Alpha'), updateRequisitionStatus)
+    .delete(protect, authorize('Admin', 'Developer -Alpha'), deleteRequisition);
 
 module.exports = router;
