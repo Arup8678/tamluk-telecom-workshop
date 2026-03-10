@@ -1,7 +1,13 @@
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Wrench, FileText, Search, ShieldCheck, Phone, Mail, MapPin, Users, Monitor, Radio } from 'lucide-react';
+import { Wrench, FileText, Search, ShieldCheck, Phone, Mail, MapPin, Users, Monitor, Radio, Download } from 'lucide-react';
+
+const isViewable = (url) => {
+    if (!url) return false;
+    const ext = url.split('.').pop().toLowerCase();
+    return ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+};
 
 const Home = () => {
     const [notices, setNotices] = useState([]);
@@ -134,8 +140,15 @@ const Home = () => {
                                             <span style={{ fontSize: '0.7rem', color: 'var(--purple-glow)', padding: '0.2rem 0.5rem', background: 'rgba(124,58,237,0.1)', borderRadius: '4px' }}>
                                                 {n.uploadedBy?.role}
                                             </span>
-                                            <a href={n.fileUrl} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', textDecoration: 'none', zIndex: 2 }}>
-                                                View File
+                                            <a
+                                                href={`/api/files/download/${n.fileUrl.split('/').pop()}`}
+                                                target={isViewable(n.fileUrl) ? "_blank" : undefined}
+                                                download={!isViewable(n.fileUrl) ? n.fileUrl.split('/').pop() : undefined}
+                                                rel="noreferrer"
+                                                className="btn btn-outline"
+                                                style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', textDecoration: 'none', zIndex: 2, display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                            >
+                                                {isViewable(n.fileUrl) ? 'View File' : <><Download size={14} /> Download</>}
                                             </a>
                                         </div>
                                     </div>

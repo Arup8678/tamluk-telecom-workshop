@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { getToken, getUser } from '../utils/auth';
-import { LayoutDashboard, Wrench, FileText, Activity, Clock, Users, RefreshCw, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Wrench, FileText, Activity, Clock, Users, RefreshCw, AlertTriangle, Download } from 'lucide-react';
+
+const isViewable = (url) => {
+    if (!url) return false;
+    const ext = url.split('.').pop().toLowerCase();
+    return ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+};
 
 const AdminDashboard = () => {
     const [stats, setStats] = useState(null);
@@ -161,7 +167,17 @@ const AdminDashboard = () => {
                                         <td><code style={{ color: 'var(--purple-glow)', fontSize: '0.8rem' }}>{r.repairId}</code></td>
                                         <td>{r.location}</td>
                                         <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.issue}</td>
-                                        <td>{r.fileUrl ? <a href={r.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--purple-light)' }}>View</a> : '—'}</td>
+                                        <td>{r.fileUrl ? (
+                                            <a
+                                                href={`/api/files/download/${r.fileUrl.split('/').pop()}`}
+                                                target={isViewable(r.fileUrl) ? "_blank" : undefined}
+                                                download={!isViewable(r.fileUrl) ? r.fileUrl.split('/').pop() : undefined}
+                                                rel="noreferrer"
+                                                style={{ color: 'var(--purple-light)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                            >
+                                                {isViewable(r.fileUrl) ? 'View' : <><Download size={14} /> DL</>}
+                                            </a>
+                                        ) : '—'}</td>
                                         <td><span className={`badge badge-${r.status.toLowerCase()}`}>{r.status}</span></td>
                                         <td style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                                             <select className="form-control" style={{ padding: '0.3rem', fontSize: '0.8rem', width: 'auto' }} value={r.status} onChange={e => handleStatusChange('repair', r._id, e.target.value)}>
@@ -194,7 +210,17 @@ const AdminDashboard = () => {
                                     <tr key={req._id}>
                                         <td><code style={{ color: 'var(--purple-glow)', fontSize: '0.8rem' }}>{req.requisitionId}</code></td>
                                         <td>{req.item} <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>({req.quantity})</span></td>
-                                        <td>{req.fileUrl ? <a href={req.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--purple-light)' }}>View</a> : '—'}</td>
+                                        <td>{req.fileUrl ? (
+                                            <a
+                                                href={`/api/files/download/${req.fileUrl.split('/').pop()}`}
+                                                target={isViewable(req.fileUrl) ? "_blank" : undefined}
+                                                download={!isViewable(req.fileUrl) ? req.fileUrl.split('/').pop() : undefined}
+                                                rel="noreferrer"
+                                                style={{ color: 'var(--purple-light)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                            >
+                                                {isViewable(req.fileUrl) ? 'View' : <><Download size={14} /> DL</>}
+                                            </a>
+                                        ) : '—'}</td>
                                         <td><span className={`badge badge-${req.status.toLowerCase()}`}>{req.status}</span></td>
                                         <td style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                                             <select className="form-control" style={{ padding: '0.3rem', fontSize: '0.8rem', width: 'auto' }} value={req.status} onChange={e => handleStatusChange('requisition', req._id, e.target.value)}>
@@ -264,7 +290,17 @@ const AdminDashboard = () => {
                                         <td><span style={{ fontWeight: 600 }}>{l.leaveType}</span></td>
                                         <td style={{ fontFamily: 'Orbitron, monospace', fontWeight: 700 }}>{l.days}</td>
                                         <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.reason}</td>
-                                        <td>{l.fileUrl ? <a href={l.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--purple-light)' }}>View</a> : '—'}</td>
+                                        <td>{l.fileUrl ? (
+                                            <a
+                                                href={`/api/files/download/${l.fileUrl.split('/').pop()}`}
+                                                target={isViewable(l.fileUrl) ? "_blank" : undefined}
+                                                download={!isViewable(l.fileUrl) ? l.fileUrl.split('/').pop() : undefined}
+                                                rel="noreferrer"
+                                                style={{ color: 'var(--purple-light)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                            >
+                                                {isViewable(l.fileUrl) ? 'View' : <><Download size={14} /> DL</>}
+                                            </a>
+                                        ) : '—'}</td>
                                         <td><span className={`badge ${l.status === 'Approved' ? 'badge-approved' : l.status === 'Rejected' ? 'badge-rejected' : 'badge-pending'}`}>{l.status}</span></td>
                                         <td style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                                             <select className="form-control" style={{ padding: '0.3rem', fontSize: '0.8rem', width: 'auto' }} value={l.status} onChange={e => handleStatusChange('leave', l._id, e.target.value)}>
@@ -336,7 +372,15 @@ const AdminDashboard = () => {
                                         <td style={{ fontWeight: 600 }}>{n.title}</td>
                                         <td><span style={{ color: 'var(--purple-glow)', fontSize: '0.8rem' }}>{n.uploadedBy?.username} ({n.uploadedBy?.role})</span></td>
                                         <td style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(n.createdAt).toLocaleDateString()}</td>
-                                        <td><a href={n.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--purple-light)', textDecoration: 'none' }}>View File</a></td>
+                                        <td><a
+                                            href={`/api/files/download/${n.fileUrl.split('/').pop()}`}
+                                            target={isViewable(n.fileUrl) ? "_blank" : undefined}
+                                            download={!isViewable(n.fileUrl) ? n.fileUrl.split('/').pop() : undefined}
+                                            rel="noreferrer"
+                                            style={{ color: 'var(--purple-light)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                        >
+                                            {isViewable(n.fileUrl) ? 'View File' : <><Download size={14} /> DL</>}
+                                        </a></td>
                                         <td>
                                             <button onClick={async () => {
                                                 if (!window.confirm('Delete this notice?')) return;

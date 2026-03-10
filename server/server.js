@@ -12,6 +12,7 @@ const statsRoutes = require('./routes/statsRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const leaveRoutes = require('./routes/leaveRoutes');
 const noticeRoutes = require('./routes/noticeRoutes');
+const fileRoutes = require('./routes/fileRoutes');
 
 const app = express();
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -36,6 +37,7 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/leaves', leaveRoutes);
 app.use('/api/notices', noticeRoutes);
+app.use('/api/files', fileRoutes);
 
 // TEMPORARY SEED ROUTE - remove after first use
 app.get('/api/seed', async (req, res) => {
@@ -66,7 +68,7 @@ app.get('/api/seed', async (req, res) => {
 
 // Catch-all to serve index.html for SPA routes
 app.use((req, res, next) => {
-    if (req.method === 'GET' && !req.path.startsWith('/api')) {
+    if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
         return res.sendFile(path.join(__dirname, '../client/dist/index.html'));
     }
     next();
