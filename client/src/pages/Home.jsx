@@ -146,9 +146,9 @@ const Home = () => {
                                                 download={!isViewable(n.fileUrl) ? n.fileUrl.split('/').pop() : undefined}
                                                 rel="noreferrer"
                                                 className="btn btn-outline"
-                                                style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', textDecoration: 'none', zIndex: 2, display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                                style={{ padding: '0.3rem 0.8rem', fontSize: '0.75rem', textDecoration: 'none', zIndex: 2, display: 'flex', alignItems: 'center', gap: '0.3rem', borderRadius: '20px' }}
                                             >
-                                                {isViewable(n.fileUrl) ? 'View File' : <><Download size={14} /> Download</>}
+                                                View File
                                             </a>
                                         </div>
                                     </div>
