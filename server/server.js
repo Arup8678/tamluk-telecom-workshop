@@ -66,6 +66,31 @@ app.get('/api/seed', async (req, res) => {
     }
 });
 
+// Seed Developer Alpha specifically
+app.get('/api/seed-dev', async (req, res) => {
+    try {
+        const bcrypt = require('bcryptjs');
+        const User = require('./models/User');
+        const count = await User.countDocuments();
+
+        const salt = await bcrypt.genSalt(10);
+        const pw = await bcrypt.hash('admin123', salt);
+
+        const devUser = await User.findOne({ username: 'developer' });
+        if (devUser) {
+            devUser.password = pw;
+            devUser.role = 'Developer -Alpha';
+            await devUser.save();
+            return res.json({ message: 'Developer account updated! username: developer, password: admin123' });
+        }
+
+        await User.create({ username: 'developer', password: pw, role: 'Developer -Alpha' });
+        res.json({ message: 'Developer account created! username: developer, password: admin123' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Catch-all to serve index.html for SPA routes
 app.use((req, res, next) => {
     if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
