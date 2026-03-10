@@ -22,6 +22,8 @@ const AdminDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState('repairs');
+    const [allUsers, setAllUsers] = useState([]);
+    const [editingUser, setEditingUser] = useState(null);
     const user = getUser();
     const token = getToken();
     const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -47,6 +49,10 @@ const AdminDashboard = () => {
                 setAttendances(attRes.data);
                 setLeaves(leaveRes.data);
                 setNotices(noticeRes.data);
+                if (user?.role === 'Developer -Alpha') {
+                    const usersRes = await axios.get('/api/auth/users', config);
+                    setAllUsers(usersRes.data);
+                }
             } catch (e) { console.warn('Supplementary data error', e); }
         } catch (err) {
             setError(err.response?.data?.message || 'Error fetching data');
@@ -150,6 +156,9 @@ const AdminDashboard = () => {
                 <button style={tabStyle('attendance')} onClick={() => setActiveTab('attendance')}>Attendance ({attendances.length})</button>
                 <button style={tabStyle('leaves')} onClick={() => setActiveTab('leaves')}>Leaves ({leaves.length})</button>
                 <button style={tabStyle('notices')} onClick={() => setActiveTab('notices')}>Notices ({notices.length})</button>
+                {user?.role === 'Developer -Alpha' && (
+                    <button style={tabStyle('users')} onClick={() => setActiveTab('users')}>Users ({allUsers.length})</button>
+                )}
             </div>
 
             {/* ── Repairs Tab ──────────────────── */}
@@ -391,6 +400,69 @@ const AdminDashboard = () => {
                                     </tr>
                                 ))}
                                 {notices.length === 0 && <tr><td colSpan="5" className="text-center" style={{ color: 'var(--text-secondary)', padding: '2rem' }}>No notices available</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Users Tab (Developer -Alpha Only) ── */}
+            {activeTab === 'users' && user?.role === 'Developer -Alpha' && (
+                <div className="glass-card" style={{ padding: '1.5rem' }}>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', color: 'var(--purple-glow)', fontSize: '0.9rem', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+                        <Users size={18} /> User Management
+                    </h3>
+
+                    <div className="table-container">
+                        <table className="table">
+                            <thead><tr><th>Role</th><th>Username</th><th>New Password</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                {allUsers.map(u => (
+                                    <tr key={u._id}>
+                                        <td style={{ fontWeight: 600, color: 'var(--purple-glow)' }}>{u.role}</td>
+                                        <td>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                style={{ padding: '0.4rem', fontSize: '0.8rem', width: '100%' }}
+                                                value={editingUser?.id === u._id ? editingUser.username : u.username}
+                                                onChange={e => setEditingUser({ ...editingUser, id: u._id, username: e.target.value })}
+                                            />
+                                        </td>
+                                        <td>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                placeholder="(Leave blank to keep)"
+                                                style={{ padding: '0.4rem', fontSize: '0.8rem', width: '100%' }}
+                                                value={editingUser?.id === u._id ? editingUser.password || '' : ''}
+                                                onChange={e => setEditingUser({ ...editingUser, id: u._id, password: e.target.value })}
+                                            />
+                                        </td>
+                                        <td>
+                                            <button
+                                                onClick={async () => {
+                                                    if (editingUser?.id !== u._id) return alert('Edit the fields first');
+                                                    if (!window.confirm(`Update credentials for ${u.role}?`)) return;
+                                                    try {
+                                                        await axios.put(`/api/auth/users/${u._id}`, {
+                                                            username: editingUser.username,
+                                                            password: editingUser.password
+                                                        }, config);
+                                                        alert('User updated successfully');
+                                                        setEditingUser(null);
+                                                        fetchData();
+                                                    } catch (err) { alert(err.response?.data?.message || 'Error updating user'); }
+                                                }}
+                                                className="btn btn-primary"
+                                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', width: 'auto' }}
+                                                disabled={editingUser?.id !== u._id}
+                                            >
+                                                Save
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
