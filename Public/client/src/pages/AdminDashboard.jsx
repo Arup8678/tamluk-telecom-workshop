@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { getToken, getUser } from '../utils/auth';
-import { LayoutDashboard, Wrench, FileText, Activity, Clock, Users, RefreshCw, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Wrench, FileText, Activity, Clock, Users, RefreshCw, AlertTriangle, Download } from 'lucide-react';
+
+const isViewable = (url) => {
+    if (!url) return false;
+    const ext = url.split('.').pop().toLowerCase();
+    return ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+};
 
 const AdminDashboard = () => {
     const [stats, setStats] = useState(null);
@@ -16,6 +22,8 @@ const AdminDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState('repairs');
+    const [allUsers, setAllUsers] = useState([]);
+    const [editingUser, setEditingUser] = useState(null);
     const user = getUser();
     const token = getToken();
     const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -41,6 +49,10 @@ const AdminDashboard = () => {
                 setAttendances(attRes.data);
                 setLeaves(leaveRes.data);
                 setNotices(noticeRes.data);
+                if (user?.role === 'Developer -Alpha') {
+                    const usersRes = await axios.get('/api/auth/users', config);
+                    setAllUsers(usersRes.data);
+                }
             } catch (e) { console.warn('Supplementary data error', e); }
         } catch (err) {
             setError(err.response?.data?.message || 'Error fetching data');
@@ -144,6 +156,9 @@ const AdminDashboard = () => {
                 <button style={tabStyle('attendance')} onClick={() => setActiveTab('attendance')}>Attendance ({attendances.length})</button>
                 <button style={tabStyle('leaves')} onClick={() => setActiveTab('leaves')}>Leaves ({leaves.length})</button>
                 <button style={tabStyle('notices')} onClick={() => setActiveTab('notices')}>Notices ({notices.length})</button>
+                {user?.role === 'Developer -Alpha' && (
+                    <button style={tabStyle('users')} onClick={() => setActiveTab('users')}>Users ({allUsers.length})</button>
+                )}
             </div>
 
             {/* ── Repairs Tab ──────────────────── */}
@@ -161,7 +176,17 @@ const AdminDashboard = () => {
                                         <td><code style={{ color: 'var(--purple-glow)', fontSize: '0.8rem' }}>{r.repairId}</code></td>
                                         <td>{r.location}</td>
                                         <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.issue}</td>
-                                        <td>{r.fileUrl ? <a href={r.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--purple-light)' }}>View</a> : '—'}</td>
+                                        <td>{r.fileUrl ? (
+                                            <a
+                                                href={`/api/files/download/${r.fileUrl.split('/').pop()}`}
+                                                target={isViewable(r.fileUrl) ? "_blank" : undefined}
+                                                download={!isViewable(r.fileUrl) ? r.fileUrl.split('/').pop() : undefined}
+                                                rel="noreferrer"
+                                                style={{ color: 'var(--purple-light)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                            >
+                                                {isViewable(r.fileUrl) ? 'View' : <><Download size={14} /> DL</>}
+                                            </a>
+                                        ) : '—'}</td>
                                         <td><span className={`badge badge-${r.status.toLowerCase()}`}>{r.status}</span></td>
                                         <td style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                                             <select className="form-control" style={{ padding: '0.3rem', fontSize: '0.8rem', width: 'auto' }} value={r.status} onChange={e => handleStatusChange('repair', r._id, e.target.value)}>
@@ -194,7 +219,17 @@ const AdminDashboard = () => {
                                     <tr key={req._id}>
                                         <td><code style={{ color: 'var(--purple-glow)', fontSize: '0.8rem' }}>{req.requisitionId}</code></td>
                                         <td>{req.item} <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>({req.quantity})</span></td>
-                                        <td>{req.fileUrl ? <a href={req.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--purple-light)' }}>View</a> : '—'}</td>
+                                        <td>{req.fileUrl ? (
+                                            <a
+                                                href={`/api/files/download/${req.fileUrl.split('/').pop()}`}
+                                                target={isViewable(req.fileUrl) ? "_blank" : undefined}
+                                                download={!isViewable(req.fileUrl) ? req.fileUrl.split('/').pop() : undefined}
+                                                rel="noreferrer"
+                                                style={{ color: 'var(--purple-light)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                            >
+                                                {isViewable(req.fileUrl) ? 'View' : <><Download size={14} /> DL</>}
+                                            </a>
+                                        ) : '—'}</td>
                                         <td><span className={`badge badge-${req.status.toLowerCase()}`}>{req.status}</span></td>
                                         <td style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                                             <select className="form-control" style={{ padding: '0.3rem', fontSize: '0.8rem', width: 'auto' }} value={req.status} onChange={e => handleStatusChange('requisition', req._id, e.target.value)}>
@@ -264,7 +299,17 @@ const AdminDashboard = () => {
                                         <td><span style={{ fontWeight: 600 }}>{l.leaveType}</span></td>
                                         <td style={{ fontFamily: 'Orbitron, monospace', fontWeight: 700 }}>{l.days}</td>
                                         <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.reason}</td>
-                                        <td>{l.fileUrl ? <a href={l.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--purple-light)' }}>View</a> : '—'}</td>
+                                        <td>{l.fileUrl ? (
+                                            <a
+                                                href={`/api/files/download/${l.fileUrl.split('/').pop()}`}
+                                                target={isViewable(l.fileUrl) ? "_blank" : undefined}
+                                                download={!isViewable(l.fileUrl) ? l.fileUrl.split('/').pop() : undefined}
+                                                rel="noreferrer"
+                                                style={{ color: 'var(--purple-light)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                            >
+                                                {isViewable(l.fileUrl) ? 'View' : <><Download size={14} /> DL</>}
+                                            </a>
+                                        ) : '—'}</td>
                                         <td><span className={`badge ${l.status === 'Approved' ? 'badge-approved' : l.status === 'Rejected' ? 'badge-rejected' : 'badge-pending'}`}>{l.status}</span></td>
                                         <td style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                                             <select className="form-control" style={{ padding: '0.3rem', fontSize: '0.8rem', width: 'auto' }} value={l.status} onChange={e => handleStatusChange('leave', l._id, e.target.value)}>
@@ -336,7 +381,13 @@ const AdminDashboard = () => {
                                         <td style={{ fontWeight: 600 }}>{n.title}</td>
                                         <td><span style={{ color: 'var(--purple-glow)', fontSize: '0.8rem' }}>{n.uploadedBy?.username} ({n.uploadedBy?.role})</span></td>
                                         <td style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(n.createdAt).toLocaleDateString()}</td>
-                                        <td><a href={n.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--purple-light)', textDecoration: 'none' }}>View File</a></td>
+                                        <td><a
+                                            href={`/api/files/download/${n.fileUrl.split('/').pop()}`}
+                                            download={n.fileUrl.split('/').pop()}
+                                            style={{ color: 'var(--purple-light)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                        >
+                                            <Download size={14} /> Download
+                                        </a></td>
                                         <td>
                                             <button onClick={async () => {
                                                 if (!window.confirm('Delete this notice?')) return;
@@ -349,6 +400,69 @@ const AdminDashboard = () => {
                                     </tr>
                                 ))}
                                 {notices.length === 0 && <tr><td colSpan="5" className="text-center" style={{ color: 'var(--text-secondary)', padding: '2rem' }}>No notices available</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Users Tab (Developer -Alpha Only) ── */}
+            {activeTab === 'users' && user?.role === 'Developer -Alpha' && (
+                <div className="glass-card" style={{ padding: '1.5rem' }}>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', color: 'var(--purple-glow)', fontSize: '0.9rem', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+                        <Users size={18} /> User Management
+                    </h3>
+
+                    <div className="table-container">
+                        <table className="table">
+                            <thead><tr><th>Role</th><th>Username</th><th>New Password</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                {allUsers.map(u => (
+                                    <tr key={u._id}>
+                                        <td style={{ fontWeight: 600, color: 'var(--purple-glow)' }}>{u.role}</td>
+                                        <td>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                style={{ padding: '0.4rem', fontSize: '0.8rem', width: '100%' }}
+                                                value={editingUser?.id === u._id ? editingUser.username : u.username}
+                                                onChange={e => setEditingUser({ ...editingUser, id: u._id, username: e.target.value })}
+                                            />
+                                        </td>
+                                        <td>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                placeholder="(Leave blank to keep)"
+                                                style={{ padding: '0.4rem', fontSize: '0.8rem', width: '100%' }}
+                                                value={editingUser?.id === u._id ? editingUser.password || '' : ''}
+                                                onChange={e => setEditingUser({ ...editingUser, id: u._id, password: e.target.value })}
+                                            />
+                                        </td>
+                                        <td>
+                                            <button
+                                                onClick={async () => {
+                                                    if (editingUser?.id !== u._id) return alert('Edit the fields first');
+                                                    if (!window.confirm(`Update credentials for ${u.role}?`)) return;
+                                                    try {
+                                                        await axios.put(`/api/auth/users/${u._id}`, {
+                                                            username: editingUser.username,
+                                                            password: editingUser.password
+                                                        }, config);
+                                                        alert('User updated successfully');
+                                                        setEditingUser(null);
+                                                        fetchData();
+                                                    } catch (err) { alert(err.response?.data?.message || 'Error updating user'); }
+                                                }}
+                                                className="btn btn-primary"
+                                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', width: 'auto' }}
+                                                disabled={editingUser?.id !== u._id}
+                                            >
+                                                Save
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>

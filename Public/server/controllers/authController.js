@@ -67,3 +67,52 @@ exports.loginUser = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// @desc    Get all users
+// @route   GET /api/auth/users
+// @access  Developer -Alpha
+exports.getUsers = async (req, res) => {
+    try {
+        const users = await User.find({}).select('-password');
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Update user details (username and/or password)
+// @route   PUT /api/auth/users/:id
+// @access  Developer -Alpha
+exports.updateUser = async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        const user = await User.findById(req.params.id);
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        if (username) {
+            // Check if username is already taken by another user
+            const existingUser = await User.findOne({ username });
+            if (existingUser && existingUser._id.toString() !== user._id.toString()) {
+                return res.status(400).json({ message: 'Username is already taken' });
+            }
+            user.username = username;
+        }
+
+        if (password && password.trim() !== '') {
+            const salt = await bcrypt.genSalt(10);
+            user.password = await bcrypt.hash(password, salt);
+        }
+
+        const updatedUser = await user.save();
+        res.json({
+            _id: updatedUser._id,
+            username: updatedUser.username,
+            role: updatedUser.role
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};

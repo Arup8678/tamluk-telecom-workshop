@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { getToken, getUser } from '../utils/auth';
-import { Clock, LogIn, LogOut, FileText, Upload, Send, AlertCircle, CheckCircle } from 'lucide-react';
+import { Clock, LogIn, LogOut, FileText, Upload, Send, AlertCircle, CheckCircle, Download } from 'lucide-react';
+
+const isViewable = (url) => {
+    if (!url) return false;
+    const ext = url.split('.').pop().toLowerCase();
+    return ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+};
 
 const StaffDashboard = () => {
     const user = getUser();
@@ -187,7 +193,17 @@ const StaffDashboard = () => {
                                     <td><span style={{ color: 'var(--purple-glow)', fontWeight: 600 }}>{l.leaveType}</span></td>
                                     <td style={{ fontFamily: 'Orbitron, monospace', fontWeight: 700 }}>{l.days}</td>
                                     <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.reason}</td>
-                                    <td>{l.fileUrl ? <a href={l.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--purple-light)' }}>View</a> : '—'}</td>
+                                    <td>{l.fileUrl ? (
+                                        <a
+                                            href={`/api/files/download/${l.fileUrl.split('/').pop()}`}
+                                            target={isViewable(l.fileUrl) ? "_blank" : undefined}
+                                            download={!isViewable(l.fileUrl) ? l.fileUrl.split('/').pop() : undefined}
+                                            rel="noreferrer"
+                                            style={{ color: 'var(--purple-light)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                        >
+                                            {isViewable(l.fileUrl) ? 'View' : <><Download size={14} /> DL</>}
+                                        </a>
+                                    ) : '—'}</td>
                                     <td><span className={`badge ${l.status === 'Approved' ? 'badge-approved' : l.status === 'Rejected' ? 'badge-rejected' : 'badge-pending'}`}>{l.status}</span></td>
                                     <td style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(l.createdAt).toLocaleDateString()}</td>
                                 </tr>
