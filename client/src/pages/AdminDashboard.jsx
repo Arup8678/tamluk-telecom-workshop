@@ -374,12 +374,10 @@ const AdminDashboard = () => {
                                         <td style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(n.createdAt).toLocaleDateString()}</td>
                                         <td><a
                                             href={`/api/files/download/${n.fileUrl.split('/').pop()}`}
-                                            target={isViewable(n.fileUrl) ? "_blank" : undefined}
-                                            download={!isViewable(n.fileUrl) ? n.fileUrl.split('/').pop() : undefined}
-                                            rel="noreferrer"
+                                            download={n.fileUrl.split('/').pop()}
                                             style={{ color: 'var(--purple-light)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                                         >
-                                            {isViewable(n.fileUrl) ? 'View File' : <><Download size={14} /> DL</>}
+                                            <Download size={14} /> Download
                                         </a></td>
                                         <td>
                                             <button onClick={async () => {

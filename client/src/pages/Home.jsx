@@ -142,13 +142,11 @@ const Home = () => {
                                             </span>
                                             <a
                                                 href={`/api/files/download/${n.fileUrl.split('/').pop()}`}
-                                                target={isViewable(n.fileUrl) ? "_blank" : undefined}
-                                                download={!isViewable(n.fileUrl) ? n.fileUrl.split('/').pop() : undefined}
-                                                rel="noreferrer"
+                                                download={n.fileUrl.split('/').pop()}
                                                 className="btn btn-outline"
                                                 style={{ padding: '0.3rem 0.8rem', fontSize: '0.75rem', textDecoration: 'none', zIndex: 2, display: 'flex', alignItems: 'center', gap: '0.3rem', borderRadius: '20px' }}
                                             >
-                                                View File
+                                                <Download size={14} /> Download
                                             </a>
                                         </div>
                                     </div>
