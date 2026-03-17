@@ -44,6 +44,7 @@ app.use(express.static(path.join(__dirname, '../client/dist'), {
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
+app.get('/api/version', (req, res) => res.json({ version: '1.0.1-contacts' }));
 app.use('/api/auth', authRoutes);
 app.use('/api/repairs', repairRoutes);
 app.use('/api/requisitions', requisitionRoutes);
