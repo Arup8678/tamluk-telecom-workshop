@@ -24,6 +24,8 @@ const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('repairs');
     const [allUsers, setAllUsers] = useState([]);
     const [editingUser, setEditingUser] = useState(null);
+    const [teamMembers, setTeamMembers] = useState([]);
+    const [newMember, setNewMember] = useState({ name: '', phone: '', role: 'SRT', order: 0 });
     const user = getUser();
     const token = getToken();
     const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -53,6 +55,8 @@ const AdminDashboard = () => {
                     const usersRes = await axios.get('/api/auth/users', config);
                     setAllUsers(usersRes.data);
                 }
+                const teamRes = await axios.get('/api/team-members');
+                setTeamMembers(teamRes.data);
             } catch (e) { console.warn('Supplementary data error', e); }
         } catch (err) {
             setError(err.response?.data?.message || 'Error fetching data');
@@ -157,7 +161,10 @@ const AdminDashboard = () => {
                 <button style={tabStyle('leaves')} onClick={() => setActiveTab('leaves')}>Leaves ({leaves.length})</button>
                 <button style={tabStyle('notices')} onClick={() => setActiveTab('notices')}>Notices ({notices.length})</button>
                 {user?.role === 'Developer -Alpha' && (
-                    <button style={tabStyle('users')} onClick={() => setActiveTab('users')}>Users ({allUsers.length})</button>
+                    <>
+                        <button style={tabStyle('users')} onClick={() => setActiveTab('users')}>Users ({allUsers.length})</button>
+                        <button style={tabStyle('team')} onClick={() => setActiveTab('team')}>Team Contacts ({teamMembers.length})</button>
+                    </>
                 )}
             </div>
 
@@ -463,6 +470,85 @@ const AdminDashboard = () => {
                                         </td>
                                     </tr>
                                 ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+            {/* ── Team Contacts Tab (Developer -Alpha Only) ── */}
+            {activeTab === 'team' && user?.role === 'Developer -Alpha' && (
+                <div className="glass-card" style={{ padding: '1.5rem' }}>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', color: 'var(--purple-glow)', fontSize: '0.9rem', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+                        <Users size={18} /> Team Contacts Management
+                    </h3>
+
+                    {/* Add Form */}
+                    <div style={{ background: 'rgba(124,58,237,0.05)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
+                        <h4 style={{ marginBottom: '1rem', color: 'white', fontSize: '0.85rem' }}>Add New Team Member</h4>
+                        <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            if (!newMember.name || !newMember.role) return alert('Name and role are required');
+                            try {
+                                await axios.post('/api/team-members', newMember, config);
+                                setNewMember({ name: '', phone: '', role: 'SRT', order: 0 });
+                                fetchData();
+                                alert('Team member added!');
+                            } catch (err) {
+                                alert(err.response?.data?.message || 'Error adding team member');
+                            }
+                        }} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                            <div className="form-group" style={{ flex: 1, minWidth: '150px', marginBottom: 0 }}>
+                                <label className="form-label">Name</label>
+                                <input type="text" className="form-control" value={newMember.name} onChange={e => setNewMember({ ...newMember, name: e.target.value })} required />
+                            </div>
+                            <div className="form-group" style={{ flex: 1, minWidth: '150px', marginBottom: 0 }}>
+                                <label className="form-label">Phone</label>
+                                <input type="text" className="form-control" value={newMember.phone} onChange={e => setNewMember({ ...newMember, phone: e.target.value })} />
+                            </div>
+                            <div className="form-group" style={{ flex: 1, minWidth: '150px', marginBottom: 0 }}>
+                                <label className="form-label">Role</label>
+                                <select className="form-control" value={newMember.role} onChange={e => setNewMember({ ...newMember, role: e.target.value })}>
+                                    <option value="SRO">SRO</option>
+                                    <option value="SRT">SRT</option>
+                                    <option value="Wireless Operator">Wireless Operator</option>
+                                    <option value="HG/NVF">HG/NVF</option>
+                                    <option value="RTC">RTC</option>
+                                    <option value="CV">CV</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div className="form-group" style={{ width: '80px', marginBottom: 0 }}>
+                                <label className="form-label">Order</label>
+                                <input type="number" className="form-control" value={newMember.order} onChange={e => setNewMember({ ...newMember, order: parseInt(e.target.value) || 0 })} />
+                            </div>
+                            <button type="submit" className="btn btn-primary" style={{ padding: '0.75rem 1.5rem', height: 'fit-content' }}>
+                                Add
+                            </button>
+                        </form>
+                    </div>
+
+                    <div className="table-container">
+                        <table className="table">
+                            <thead><tr><th>Role</th><th>Order</th><th>Name</th><th>Phone</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                {teamMembers.map(m => (
+                                    <tr key={m._id}>
+                                        <td style={{ fontWeight: 600, color: 'var(--purple-glow)' }}>{m.role}</td>
+                                        <td>{m.order}</td>
+                                        <td>{m.name}</td>
+                                        <td style={{ color: 'var(--text-secondary)' }}>{m.phone || '—'}</td>
+                                        <td>
+                                            <button onClick={async () => {
+                                                if (!window.confirm('Delete this team member?')) return;
+                                                try {
+                                                    await axios.delete(`/api/team-members/${m._id}`, config);
+                                                    fetchData();
+                                                } catch (err) { alert(err.response?.data?.message || 'Error deleting'); }
+                                            }} className="btn btn-danger" style={{ padding: '0.25rem 0.6rem', fontSize: '0.7rem' }}>Delete</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {teamMembers.length === 0 && <tr><td colSpan="5" className="text-center" style={{ color: 'var(--text-secondary)', padding: '2rem' }}>No team members</td></tr>}
                             </tbody>
                         </table>
                     </div>

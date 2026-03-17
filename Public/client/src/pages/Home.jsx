@@ -12,12 +12,18 @@ const isViewable = (url) => {
 const Home = () => {
     const [notices, setNotices] = useState([]);
     const [loadingNotices, setLoadingNotices] = useState(true);
+    const [selectedRole, setSelectedRole] = useState(null);
+    const [teamMembers, setTeamMembers] = useState([]);
 
     useEffect(() => {
         axios.get('/api/notices')
             .then(res => setNotices(res.data))
             .catch(err => console.error('Error fetching notices', err))
             .finally(() => setLoadingNotices(false));
+            
+        axios.get('/api/team-members')
+            .then(res => setTeamMembers(res.data))
+            .catch(err => console.error('Error fetching team members', err));
     }, []);
     const now = new Date();
     const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
@@ -188,12 +194,62 @@ const Home = () => {
                 <div style={{ marginTop: '2rem', textAlign: 'center' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', flexWrap: 'wrap' }}>
                         {['SRO', 'SRT', 'Wireless Operator', 'HG/NVF', 'RTC', 'CV'].map(role => (
-                            <div key={role} style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: '10px', padding: '0.5rem 1rem' }}>
+                            <div 
+                                key={role} 
+                                onClick={() => selectedRole === role ? setSelectedRole(null) : setSelectedRole(role)}
+                                style={{ 
+                                    background: selectedRole === role ? 'rgba(124,58,237,0.15)' : 'rgba(124,58,237,0.08)', 
+                                    border: selectedRole === role ? '1px solid var(--purple-glow)' : '1px solid rgba(168,85,247,0.2)', 
+                                    borderRadius: '10px', 
+                                    padding: '0.5rem 1rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease',
+                                    transform: selectedRole === role ? 'scale(1.05)' : 'scale(1)'
+                                }}
+                            >
                                 <Radio size={14} color="var(--purple-glow)" style={{ display: 'inline', marginRight: '0.4rem' }} />
                                 <span style={{ color: 'var(--purple-glow)', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.5px' }}>{role}</span>
                             </div>
                         ))}
                     </div>
+
+                    {selectedRole && (
+                        <div style={{ 
+                            marginTop: '2rem', 
+                            padding: '1.5rem', 
+                            background: 'rgba(124,58,237,0.05)', 
+                            border: '1px solid rgba(168,85,247,0.2)', 
+                            borderRadius: '12px',
+                            animation: 'fadeInUp 0.4s ease',
+                            maxWidth: '800px',
+                            margin: '2rem auto 0'
+                        }}>
+                            <h4 style={{ color: 'var(--purple-glow)', marginBottom: '1.5rem', fontSize: '1rem', fontFamily: 'Orbitron, monospace', letterSpacing: '2px', textTransform: 'uppercase' }}>{selectedRole} TEAM MEMBERS</h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
+                                {teamMembers.filter(m => m.role === selectedRole).length > 0 ? (
+                                    teamMembers.filter(m => m.role === selectedRole).map((person, idx) => (
+                                        <div key={person._id} style={{ 
+                                            padding: '1rem', 
+                                            background: 'rgba(255,255,255,0.03)', 
+                                            borderRadius: '10px', 
+                                            border: '1px solid rgba(255,255,255,0.05)',
+                                            textAlign: 'left'
+                                        }}>
+                                            <div style={{ color: 'white', fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.4rem' }}>{idx + 1}. {person.name}</div>
+                                            {person.phone && (
+                                                <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <Phone size={14} color="var(--purple-glow)" />
+                                                    {person.phone}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div style={{ color: 'var(--text-secondary)', gridColumn: '1 / -1', textAlign: 'center' }}>No members found for this role.</div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

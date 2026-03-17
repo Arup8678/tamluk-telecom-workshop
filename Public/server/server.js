@@ -13,6 +13,7 @@ const attendanceRoutes = require('./routes/attendanceRoutes');
 const leaveRoutes = require('./routes/leaveRoutes');
 const noticeRoutes = require('./routes/noticeRoutes');
 const fileRoutes = require('./routes/fileRoutes');
+const teamMemberRoutes = require('./routes/teamMemberRoutes');
 
 const app = express();
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -51,6 +52,7 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/leaves', leaveRoutes);
 app.use('/api/notices', noticeRoutes);
 app.use('/api/files', fileRoutes);
+app.use('/api/team-members', teamMemberRoutes);
 
 // TEMPORARY SEED ROUTE - remove after first use
 app.get('/api/seed', async (req, res) => {
@@ -121,8 +123,47 @@ const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/tamluk_telecom';
 
 mongoose.connect(MONGO_URI)
-    .then(() => {
+    .then(async () => {
         console.log('Connected to MongoDB');
+        // Seed team members if empty
+        try {
+            const TeamMember = require('./models/TeamMember');
+            const count = await TeamMember.countDocuments();
+            if (count === 0) {
+                const initialMembers = [
+                    { name: 'SRO II Swajan Das', phone: '7699541469', role: 'SRO', order: 1 },
+                    { name: 'SRO II SIDDHARTHA SANKAR CHATTOPADHYAY', phone: '9830777902', role: 'SRO', order: 2 },
+                    { name: 'SRT I SOMNATH DAS(SRIC)', phone: '95640 52034', role: 'SRT', order: 1 },
+                    { name: 'SRT II Sumit Kundu', phone: '9732141601', role: 'SRT', order: 2 },
+                    { name: 'SRT II Najrul Islam', phone: '9474040198', role: 'SRT', order: 3 },
+                    { name: 'SRT II Anjan Kr. Paul', phone: '6291194939', role: 'SRT', order: 4 },
+                    { name: 'SANJOY GHARA', phone: '', role: 'Wireless Operator', order: 1 },
+                    { name: 'SANJOY MAHAPATRA', phone: '', role: 'Wireless Operator', order: 2 },
+                    { name: 'ARUP GARAI', phone: '', role: 'Wireless Operator', order: 3 },
+                    { name: 'SUDIP NAYEK', phone: '', role: 'Wireless Operator', order: 4 },
+                    { name: 'BABULAL HEMBRAM', phone: '', role: 'Wireless Operator', order: 5 },
+                    { name: 'ARPAN DAS', phone: '', role: 'Wireless Operator', order: 6 },
+                    { name: 'SANTANU MAJI', phone: '', role: 'Wireless Operator', order: 7 },
+                    { name: 'ASHIS PAIRA', phone: '', role: 'Wireless Operator', order: 8 },
+                    { name: 'AVIJIT CHAKRABORTY', phone: '', role: 'Wireless Operator', order: 9 },
+                    { name: 'AVIJIT ROY', phone: '', role: 'Wireless Operator', order: 10 },
+                    { name: 'SK MUFASSIR ALI PURKAIT', phone: '', role: 'Wireless Operator', order: 11 },
+                    { name: 'DEBANU PAL', phone: '', role: 'Wireless Operator', order: 12 },
+                    { name: 'MASUD MONDAL', phone: '', role: 'Wireless Operator', order: 13 },
+                    { name: 'SUSOVAN BHAKAT', phone: '', role: 'Wireless Operator', order: 14 },
+                    { name: 'SUBIR NARAYAN BHATTACHARYA', phone: '', role: 'Wireless Operator', order: 15 },
+                    { name: 'TARUN SATPATI', phone: '', role: 'Wireless Operator', order: 16 },
+                    { name: 'UTPAL RAJBANSHI', phone: '', role: 'Wireless Operator', order: 17 },
+                    { name: 'SUSANTA BASKEY', phone: '', role: 'Wireless Operator', order: 18 },
+                    { name: 'SOUROV MONDAL', phone: '', role: 'Wireless Operator', order: 19 },
+                    { name: 'ABHIK KUNDU (DEPUTETION AT DIRECTOR SECURITY)', phone: '', role: 'Wireless Operator', order: 20 }
+                ];
+                await TeamMember.insertMany(initialMembers);
+                console.log('Seeded initial team members.');
+            }
+        } catch (err) {
+            console.error('Error seeding team members:', err);
+        }
     })
     .catch((err) => {
         console.error('Database connection error:', err);
