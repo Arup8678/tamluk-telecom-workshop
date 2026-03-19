@@ -107,15 +107,22 @@ app.get('/api/seed-dev', async (req, res) => {
     }
 });
 
-// Catch-all to serve index.html for SPA routes
+// Catch-all to serve index.html for SPA routes — with dynamic Google verification tag injection
 app.use((req, res, next) => {
     if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
-        // Prevent caching of index.html here as well
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
         res.setHeader('Surrogate-Control', 'no-store');
-        return res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+
+        const indexPath = path.join(__dirname, '../client/dist/index.html');
+        let html = fs.readFileSync(indexPath, 'utf8');
+        // Inject correct Google verification tag regardless of build version
+        html = html.replace(
+            /<meta name="google-site-verification"[^>]*>/,
+            '<meta name="google-site-verification" content="fXhjPASM-QmZ4bVunCnGMwZjQKDS8sgS7m1pS9paMis" />'
+        );
+        return res.send(html);
     }
     next();
 });
