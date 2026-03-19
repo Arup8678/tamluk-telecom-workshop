@@ -24,6 +24,19 @@ if (!fs.existsSync(uploadsDir)) {
 app.use(express.json());
 app.use(cors());
 
+// Root route — inject correct Google verification tag before static middleware intercepts
+app.get('/', (req, res) => {
+    const indexPath = path.join(__dirname, '../client/dist/index.html');
+    let html = fs.readFileSync(indexPath, 'utf8');
+    html = html.replace(
+        /<meta name="google-site-verification"[^>]*>/,
+        '<meta name="google-site-verification" content="fXhjPASM-QmZ4bVunCnGMwZjQKDS8sgS7m1pS9paMis" />'
+    );
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Content-Type', 'text/html');
+    return res.send(html);
+});
+
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../client/dist'), {
     setHeaders: (res, filePath) => {
