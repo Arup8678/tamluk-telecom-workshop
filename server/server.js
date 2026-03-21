@@ -1,4 +1,4 @@
-try { require('dotenv').config(); } catch (e) { /* dotenv not available, using system env vars */ }
+try { require('dotenv').config(); } catch (e) { /* use system env vars on Render */ }
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -18,6 +18,8 @@ const fileRoutes = require('./routes/fileRoutes');
 const teamMemberRoutes = require('./routes/teamMemberRoutes');
 
 const app = express();
+
+// ── ENSURE UPLOADS DIR EXISTS ─────────────────────────────────
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
@@ -26,40 +28,10 @@ if (!fs.existsSync(uploadsDir)) {
 app.use(express.json());
 app.use(cors());
 
-// Root route — inject correct Google verification tag before static middleware intercepts
-app.get('/', (req, res) => {
-    const indexPath = path.join(__dirname, '../client/dist/index.html');
-    let html = fs.readFileSync(indexPath, 'utf8');
-    html = html.replace(
-        /<meta name="google-site-verification"[^>]*>/,
-        '<meta name="google-site-verification" content="fXhjPASM-QmZ4bVunCnGMwZjQKDS8sgS7m1pS9paMis" />'
-    );
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Content-Type', 'text/html');
-    return res.send(html);
-});
+// ── HEALTH CHECK (used by keep-alive ping) ────────────────────
+app.get('/api/version', (req, res) => res.json({ version: '1.0.3', status: 'ok' }));
 
-// Serve static files from the React app
-app.use(express.static(path.join(__dirname, '../client/dist'), {
-    setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.html')) {
-            // Cache control for index.html to ensure fresh frontend code is loaded
-            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-            res.setHeader('Pragma', 'no-cache');
-            res.setHeader('Expires', '0');
-            res.setHeader('Surrogate-Control', 'no-store');
-        } else {
-            // Cache static assets forever (Vite uses hashed filenames)
-            res.setHeader('Cache-Control', 'public, max-age=31536000');
-        }
-    }
-}));
-
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Routes
-app.get('/api/version', (req, res) => res.json({ version: '1.0.1-contacts' }));
+// ── ALL API ROUTES (registered before static middleware) ──────
 app.use('/api/auth', authRoutes);
 app.use('/api/repairs', repairRoutes);
 app.use('/api/requisitions', requisitionRoutes);
@@ -70,7 +42,7 @@ app.use('/api/notices', noticeRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/team-members', teamMemberRoutes);
 
-// TEMPORARY SEED ROUTE - remove after first use
+// ── SEED ROUTES ───────────────────────────────────────────────
 app.get('/api/seed', async (req, res) => {
     try {
         const bcrypt = require('bcryptjs');
@@ -79,7 +51,7 @@ app.get('/api/seed', async (req, res) => {
         if (count > 0) return res.json({ message: `Already seeded. ${count} users exist.` });
         const salt = await bcrypt.genSalt(10);
         const pw = await bcrypt.hash('admin123', salt);
-        const users = [
+        await User.insertMany([
             { username: 'admin', password: pw, role: 'Admin' },
             { username: 'inspector', password: pw, role: 'Inspector' },
             { username: 'sric', password: pw, role: 'SRIC' },
@@ -89,71 +61,88 @@ app.get('/api/seed', async (req, res) => {
             { username: 'hgnvf1', password: pw, role: 'HG/NVF' },
             { username: 'rtc1', password: pw, role: 'RTC' },
             { username: 'cv1', password: pw, role: 'CV' },
-        ];
-        await User.insertMany(users);
-        res.json({ message: 'Database seeded successfully! 9 users created. Password: admin123' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+        ]);
+        res.json({ message: 'Seeded! 9 users created. Password: admin123' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Seed Developer Alpha specifically
 app.get('/api/seed-dev', async (req, res) => {
     try {
         const bcrypt = require('bcryptjs');
         const User = require('./models/User');
-        const count = await User.countDocuments();
-
         const salt = await bcrypt.genSalt(10);
         const pw = await bcrypt.hash('admin123', salt);
-
         const devUser = await User.findOne({ username: 'developer' });
         if (devUser) {
-            devUser.password = pw;
-            devUser.role = 'Developer -Alpha';
+            devUser.password = pw; devUser.role = 'Developer -Alpha';
             await devUser.save();
-            return res.json({ message: 'Developer account updated! username: developer, password: admin123' });
+            return res.json({ message: 'Developer account updated!' });
         }
-
         await User.create({ username: 'developer', password: pw, role: 'Developer -Alpha' });
         res.json({ message: 'Developer account created! username: developer, password: admin123' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Catch-all to serve index.html for SPA routes — with dynamic Google verification tag injection
-app.use((req, res, next) => {
-    if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
-        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-        res.setHeader('Surrogate-Control', 'no-store');
+// ── SERVE UPLOADED FILES ──────────────────────────────────────
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-        const indexPath = path.join(__dirname, '../client/dist/index.html');
-        let html = fs.readFileSync(indexPath, 'utf8');
-        // Inject correct Google verification tag regardless of build version
-        html = html.replace(
-            /<meta name="google-site-verification"[^>]*>/,
-            '<meta name="google-site-verification" content="fXhjPASM-QmZ4bVunCnGMwZjQKDS8sgS7m1pS9paMis" />'
-        );
-        return res.send(html);
-    }
-    next();
-});
+// ── SERVE REACT FRONTEND ──────────────────────────────────────
+const clientDistPath = path.join(__dirname, '../client/dist');
+const indexHtmlPath = path.join(clientDistPath, 'index.html');
 
+if (fs.existsSync(clientDistPath)) {
+    // Serve hashed static assets with long cache
+    app.use(express.static(clientDistPath, {
+        setHeaders: (res, filePath) => {
+            if (filePath.endsWith('.html')) {
+                res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+                res.setHeader('Pragma', 'no-cache');
+                res.setHeader('Expires', '0');
+            } else {
+                res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            }
+        }
+    }));
+
+    // SPA catch-all: serve index.html for all frontend routes
+    app.get('*', (req, res) => {
+        if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) return;
+        try {
+            let html = fs.readFileSync(indexHtmlPath, 'utf8');
+            // Keep Google Search Console verification tag always correct
+            html = html.replace(
+                /<meta name="google-site-verification"[^>]*>/,
+                '<meta name="google-site-verification" content="fXhjPASM-QmZ4bVunCnGMwZjQKDS8sgS7m1pS9paMis" />'
+            );
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+            res.setHeader('Content-Type', 'text/html');
+            res.send(html);
+        } catch (err) {
+            console.error('[server] Error reading index.html:', err.message);
+            res.status(500).send('Server error: frontend unavailable.');
+        }
+    });
+} else {
+    console.warn('[server] client/dist not found - API-only mode.');
+    app.get('*', (req, res) => {
+        if (!req.path.startsWith('/api')) {
+            res.status(503).json({ message: 'Frontend not built yet.' });
+        }
+    });
+}
+
+// ── DATABASE CONNECTION ───────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/tamluk_telecom';
 
 mongoose.connect(MONGO_URI)
     .then(async () => {
-        console.log('Connected to MongoDB');
-        // Seed team members if empty
+        console.log('[server] Connected to MongoDB');
         try {
             const TeamMember = require('./models/TeamMember');
             const count = await TeamMember.countDocuments();
             if (count === 0) {
-                const initialMembers = [
+                await TeamMember.insertMany([
                     { name: 'SRO II Swajan Das', phone: '7699541469', role: 'SRO', order: 1 },
                     { name: 'SRO II SIDDHARTHA SANKAR CHATTOPADHYAY', phone: '9830777902', role: 'SRO', order: 2 },
                     { name: 'SRT I SOMNATH DAS(SRIC)', phone: '95640 52034', role: 'SRT', order: 1 },
@@ -180,37 +169,34 @@ mongoose.connect(MONGO_URI)
                     { name: 'SUSANTA BASKEY', phone: '', role: 'Wireless Operator', order: 18 },
                     { name: 'SOUROV MONDAL', phone: '', role: 'Wireless Operator', order: 19 },
                     { name: 'ABHIK KUNDU (DEPUTETION AT DIRECTOR SECURITY)', phone: '', role: 'Wireless Operator', order: 20 }
-                ];
-                await TeamMember.insertMany(initialMembers);
-                console.log('Seeded initial team members.');
+                ]);
+                console.log('[server] Team members seeded.');
             }
         } catch (err) {
-            console.error('Error seeding team members:', err);
+            console.error('[server] Team member seed error:', err.message);
         }
     })
     .catch((err) => {
-        console.error('Database connection error:', err);
+        // Log but do NOT crash — server still serves health checks
+        console.error('[server] MongoDB connection error:', err.message);
     });
 
+// ── START SERVER ──────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`[server] Running on port ${PORT}`);
 
-    // ── KEEP-ALIVE SELF-PING ─────────────────────────────────────────
-    // Pings the server every 14 minutes so Render free tier never idles.
-    const RENDER_URL = process.env.RENDER_EXTERNAL_URL || process.env.SELF_URL;
+    // Keep-alive self-ping prevents Render free tier from sleeping
+    const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
     if (RENDER_URL) {
         const pingUrl = `${RENDER_URL}/api/version`;
         const requester = pingUrl.startsWith('https') ? https : http;
         setInterval(() => {
             requester.get(pingUrl, (res) => {
-                console.log(`[keep-alive] ping → ${res.statusCode}`);
+                console.log(`[keep-alive] ping -> ${res.statusCode}`);
             }).on('error', (err) => {
                 console.warn('[keep-alive] ping failed:', err.message);
             });
         }, 14 * 60 * 1000); // every 14 minutes
-        console.log(`[keep-alive] Self-ping active → ${pingUrl}`);
-    } else {
-        console.log('[keep-alive] No RENDER_EXTERNAL_URL set — skipping self-ping (local dev).');
+        console.log(`[keep-alive] Active -> ${pingUrl}`);
     }
-    // ────────────────────────────────────────────────────────────────
 });
