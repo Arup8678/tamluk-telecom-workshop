@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
+const http = require('http');
 
 const authRoutes = require('./routes/authRoutes');
 const repairRoutes = require('./routes/repairRoutes');
@@ -24,17 +26,28 @@ if (!fs.existsSync(uploadsDir)) {
 app.use(express.json());
 app.use(cors());
 
+// Root route — inject correct Google verification tag before static middleware intercepts
+app.get('/', (req, res) => {
+    const indexPath = path.join(__dirname, '../client/dist/index.html');
+    let html = fs.readFileSync(indexPath, 'utf8');
+    html = html.replace(
+        /<meta name="google-site-verification"[^>]*>/,
+        '<meta name="google-site-verification" content="fXhjPASM-QmZ4bVunCnGMwZjQKDS8sgS7m1pS9paMis" />'
+    );
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Content-Type', 'text/html');
+    return res.send(html);
+});
+
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../client/dist'), {
     setHeaders: (res, filePath) => {
         if (filePath.endsWith('.html')) {
-            // Cache control for index.html to ensure fresh frontend code is loaded
             res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
             res.setHeader('Pragma', 'no-cache');
             res.setHeader('Expires', '0');
             res.setHeader('Surrogate-Control', 'no-store');
         } else {
-            // Cache static assets forever (Vite uses hashed filenames)
             res.setHeader('Cache-Control', 'public, max-age=31536000');
         }
     }
@@ -44,6 +57,7 @@ app.use(express.static(path.join(__dirname, '../client/dist'), {
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
+app.get('/api/version', (req, res) => res.json({ version: '1.0.2-keepalive' }));
 app.use('/api/auth', authRoutes);
 app.use('/api/repairs', repairRoutes);
 app.use('/api/requisitions', requisitionRoutes);
@@ -86,7 +100,6 @@ app.get('/api/seed-dev', async (req, res) => {
     try {
         const bcrypt = require('bcryptjs');
         const User = require('./models/User');
-        const count = await User.countDocuments();
 
         const salt = await bcrypt.genSalt(10);
         const pw = await bcrypt.hash('admin123', salt);
@@ -106,15 +119,21 @@ app.get('/api/seed-dev', async (req, res) => {
     }
 });
 
-// Catch-all to serve index.html for SPA routes
+// Catch-all to serve index.html for SPA routes — with dynamic Google verification tag injection
 app.use((req, res, next) => {
     if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
-        // Prevent caching of index.html here as well
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
         res.setHeader('Surrogate-Control', 'no-store');
-        return res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+
+        const indexPath = path.join(__dirname, '../client/dist/index.html');
+        let html = fs.readFileSync(indexPath, 'utf8');
+        html = html.replace(
+            /<meta name="google-site-verification"[^>]*>/,
+            '<meta name="google-site-verification" content="fXhjPASM-QmZ4bVunCnGMwZjQKDS8sgS7m1pS9paMis" />'
+        );
+        return res.send(html);
     }
     next();
 });
@@ -171,4 +190,23 @@ mongoose.connect(MONGO_URI)
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
+
+    // ── KEEP-ALIVE SELF-PING ─────────────────────────────────────────
+    // Pings the server every 14 minutes so Render free tier never idles.
+    const RENDER_URL = process.env.RENDER_EXTERNAL_URL || process.env.SELF_URL;
+    if (RENDER_URL) {
+        const pingUrl = `${RENDER_URL}/api/version`;
+        const requester = pingUrl.startsWith('https') ? https : http;
+        setInterval(() => {
+            requester.get(pingUrl, (res) => {
+                console.log(`[keep-alive] ping -> ${res.statusCode}`);
+            }).on('error', (err) => {
+                console.warn('[keep-alive] ping failed:', err.message);
+            });
+        }, 14 * 60 * 1000); // every 14 minutes
+        console.log(`[keep-alive] Self-ping active -> ${pingUrl}`);
+    } else {
+        console.log('[keep-alive] No RENDER_EXTERNAL_URL set - skipping self-ping (local dev).');
+    }
+    // ────────────────────────────────────────────────────────────────
 });
