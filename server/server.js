@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
+const http = require('http');
 
 const authRoutes = require('./routes/authRoutes');
 const repairRoutes = require('./routes/repairRoutes');
@@ -192,4 +194,23 @@ mongoose.connect(MONGO_URI)
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
+
+    // ── KEEP-ALIVE SELF-PING ─────────────────────────────────────────
+    // Pings the server every 14 minutes so Render free tier never idles.
+    const RENDER_URL = process.env.RENDER_EXTERNAL_URL || process.env.SELF_URL;
+    if (RENDER_URL) {
+        const pingUrl = `${RENDER_URL}/api/version`;
+        const requester = pingUrl.startsWith('https') ? https : http;
+        setInterval(() => {
+            requester.get(pingUrl, (res) => {
+                console.log(`[keep-alive] ping → ${res.statusCode}`);
+            }).on('error', (err) => {
+                console.warn('[keep-alive] ping failed:', err.message);
+            });
+        }, 14 * 60 * 1000); // every 14 minutes
+        console.log(`[keep-alive] Self-ping active → ${pingUrl}`);
+    } else {
+        console.log('[keep-alive] No RENDER_EXTERNAL_URL set — skipping self-ping (local dev).');
+    }
+    // ────────────────────────────────────────────────────────────────
 });
