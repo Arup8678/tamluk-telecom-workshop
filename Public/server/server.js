@@ -18,6 +18,8 @@ const fileRoutes = require('./routes/fileRoutes');
 const teamMemberRoutes = require('./routes/teamMemberRoutes');
 
 const app = express();
+
+// Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
@@ -26,38 +28,10 @@ if (!fs.existsSync(uploadsDir)) {
 app.use(express.json());
 app.use(cors());
 
-// Root route — inject correct Google verification tag before static middleware intercepts
-app.get('/', (req, res) => {
-    const indexPath = path.join(__dirname, '../client/dist/index.html');
-    let html = fs.readFileSync(indexPath, 'utf8');
-    html = html.replace(
-        /<meta name="google-site-verification"[^>]*>/,
-        '<meta name="google-site-verification" content="fXhjPASM-QmZ4bVunCnGMwZjQKDS8sgS7m1pS9paMis" />'
-    );
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Content-Type', 'text/html');
-    return res.send(html);
-});
+// ── HEALTH CHECK (for Render keep-alive pings) ────────────────
+app.get('/api/version', (req, res) => res.json({ version: '1.0.2-keepalive', status: 'ok' }));
 
-// Serve static files from the React app
-app.use(express.static(path.join(__dirname, '../client/dist'), {
-    setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.html')) {
-            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-            res.setHeader('Pragma', 'no-cache');
-            res.setHeader('Expires', '0');
-            res.setHeader('Surrogate-Control', 'no-store');
-        } else {
-            res.setHeader('Cache-Control', 'public, max-age=31536000');
-        }
-    }
-}));
-
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Routes
-app.get('/api/version', (req, res) => res.json({ version: '1.0.2-keepalive' }));
+// ── API ROUTES (must be before static middleware) ─────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/repairs', repairRoutes);
 app.use('/api/requisitions', requisitionRoutes);
@@ -68,7 +42,7 @@ app.use('/api/notices', noticeRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/team-members', teamMemberRoutes);
 
-// TEMPORARY SEED ROUTE - remove after first use
+// TEMPORARY SEED ROUTE
 app.get('/api/seed', async (req, res) => {
     try {
         const bcrypt = require('bcryptjs');
@@ -89,21 +63,18 @@ app.get('/api/seed', async (req, res) => {
             { username: 'cv1', password: pw, role: 'CV' },
         ];
         await User.insertMany(users);
-        res.json({ message: 'Database seeded successfully! 9 users created. Password: admin123' });
+        res.json({ message: 'Database seeded! 9 users, password: admin123' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Seed Developer Alpha specifically
 app.get('/api/seed-dev', async (req, res) => {
     try {
         const bcrypt = require('bcryptjs');
         const User = require('./models/User');
-
         const salt = await bcrypt.genSalt(10);
         const pw = await bcrypt.hash('admin123', salt);
-
         const devUser = await User.findOne({ username: 'developer' });
         if (devUser) {
             devUser.password = pw;
@@ -111,7 +82,6 @@ app.get('/api/seed-dev', async (req, res) => {
             await devUser.save();
             return res.json({ message: 'Developer account updated! username: developer, password: admin123' });
         }
-
         await User.create({ username: 'developer', password: pw, role: 'Developer -Alpha' });
         res.json({ message: 'Developer account created! username: developer, password: admin123' });
     } catch (err) {
@@ -119,32 +89,60 @@ app.get('/api/seed-dev', async (req, res) => {
     }
 });
 
-// Catch-all to serve index.html for SPA routes — with dynamic Google verification tag injection
-app.use((req, res, next) => {
-    if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
-        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-        res.setHeader('Surrogate-Control', 'no-store');
+// ── SERVE UPLOADED FILES ──────────────────────────────────────
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-        const indexPath = path.join(__dirname, '../client/dist/index.html');
-        let html = fs.readFileSync(indexPath, 'utf8');
-        html = html.replace(
-            /<meta name="google-site-verification"[^>]*>/,
-            '<meta name="google-site-verification" content="fXhjPASM-QmZ4bVunCnGMwZjQKDS8sgS7m1pS9paMis" />'
-        );
-        return res.send(html);
-    }
-    next();
-});
+// ── SERVE REACT STATIC BUILD ──────────────────────────────────
+const clientDistPath = path.join(__dirname, '../client/dist');
+const indexHtmlPath = path.join(clientDistPath, 'index.html');
 
+if (fs.existsSync(clientDistPath)) {
+    app.use(express.static(clientDistPath, {
+        setHeaders: (res, filePath) => {
+            if (filePath.endsWith('.html')) {
+                res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+                res.setHeader('Pragma', 'no-cache');
+                res.setHeader('Expires', '0');
+            } else {
+                res.setHeader('Cache-Control', 'public, max-age=31536000');
+            }
+        }
+    }));
+
+    // Catch-all: serve index.html for all non-API routes (SPA support)
+    app.get('*', (req, res) => {
+        if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) return;
+        try {
+            let html = fs.readFileSync(indexHtmlPath, 'utf8');
+            // Inject Google Search Console verification tag
+            html = html.replace(
+                /<meta name="google-site-verification"[^>]*>/,
+                '<meta name="google-site-verification" content="fXhjPASM-QmZ4bVunCnGMwZjQKDS8sgS7m1pS9paMis" />'
+            );
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+            res.setHeader('Content-Type', 'text/html');
+            res.send(html);
+        } catch (err) {
+            console.error('Error reading index.html:', err.message);
+            res.status(500).send('Server error: could not serve frontend.');
+        }
+    });
+} else {
+    console.warn('[WARNING] client/dist not found - frontend will not be served.');
+    app.get('*', (req, res) => {
+        if (!req.path.startsWith('/api')) {
+            res.status(503).json({ message: 'Frontend not built. Run npm run build:client first.' });
+        }
+    });
+}
+
+// ── DATABASE ──────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/tamluk_telecom';
 
 mongoose.connect(MONGO_URI)
     .then(async () => {
         console.log('Connected to MongoDB');
-        // Seed team members if empty
         try {
             const TeamMember = require('./models/TeamMember');
             const count = await TeamMember.countDocuments();
@@ -186,13 +184,14 @@ mongoose.connect(MONGO_URI)
     })
     .catch((err) => {
         console.error('Database connection error:', err);
+        // Don't exit — let the app run so health checks still pass
     });
 
+// ── START SERVER ──────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
 
-    // ── KEEP-ALIVE SELF-PING ─────────────────────────────────────────
-    // Pings the server every 14 minutes so Render free tier never idles.
+    // ── KEEP-ALIVE SELF-PING (prevents Render free tier sleep) ────
     const RENDER_URL = process.env.RENDER_EXTERNAL_URL || process.env.SELF_URL;
     if (RENDER_URL) {
         const pingUrl = `${RENDER_URL}/api/version`;
@@ -203,10 +202,10 @@ app.listen(PORT, '0.0.0.0', () => {
             }).on('error', (err) => {
                 console.warn('[keep-alive] ping failed:', err.message);
             });
-        }, 14 * 60 * 1000); // every 14 minutes
+        }, 14 * 60 * 1000);
         console.log(`[keep-alive] Self-ping active -> ${pingUrl}`);
     } else {
-        console.log('[keep-alive] No RENDER_EXTERNAL_URL set - skipping self-ping (local dev).');
+        console.log('[keep-alive] No RENDER_EXTERNAL_URL set - local dev mode.');
     }
-    // ────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
 });
